@@ -10,7 +10,7 @@ This comprehensive guide explores Manus AI's architecture, the internal mechanic
 
 **Figure: Comprehensive Manus AI System Flow Diagram**
 
-![Manus Comprehensive Flow Diagram](./manus_flow_diagram.png)
+![Manus Comprehensive Flow Diagram](./diagrams/manus_flow_diagram.png)
 
 The diagram above provides a comprehensive overview of the entire Manus AI system architecture and flow. It shows how complementary technologies (MCP for data access and Skills for workflows) integrate with the core Manus agent, which executes tools and scripts in the sandbox environment. The skill discovery and progressive disclosure mechanism is illustrated, showing how different skill levels are loaded based on task requirements. This unified view demonstrates how all components work together to enable autonomous execution.
 
