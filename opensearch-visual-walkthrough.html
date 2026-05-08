@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>OpenSearch — A Visual Journey from Zero to Production</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#07090f;--sur:#0d1119;--sur2:#131b27;--bdr:#1d2d40;
+  --text:#dde8f5;--mut:#4a6380;--acc:#38bdf8;--grn:#34d399;
+  --amb:#fbbf24;--red:#f87171;--pur:#a78bfa;--cyan:#22d3ee;--org:#fb923c;
+  --fd:'Playfair Display',serif;--fb:'DM Sans',sans-serif;--fm:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);font-weight:300;line-height:1.75;overflow-x:hidden}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(7,9,15,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--bdr);height:50px;display:flex;align-items:center;padding:0 1.5rem}
+.nl{font-family:var(--fm);font-size:11px;color:var(--acc);margin-right:1.5rem;white-space:nowrap;opacity:.9}
+.nav-links{display:flex;list-style:none;overflow-x:auto;gap:0;flex:1}
+.nav-links a{display:block;padding:0 11px;height:50px;line-height:50px;font-size:11px;color:var(--mut);text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:color .2s,border-color .2s}
+.nav-links a:hover,.nav-links a.on{color:var(--acc);border-bottom-color:var(--acc)}
+
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:7rem 2rem 4rem;position:relative;overflow:hidden}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(56,189,248,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.04) 1px,transparent 1px);background-size:52px 52px;mask-image:radial-gradient(ellipse 80% 60% at 50% 50%,black,transparent)}
+.hero-tag{font-family:var(--fm);font-size:10px;color:var(--acc);letter-spacing:.2em;text-transform:uppercase;margin-bottom:1.1rem}
+.hero h1{font-family:var(--fd);font-size:clamp(2.4rem,6vw,5rem);font-weight:700;line-height:1.08;max-width:840px;margin-bottom:1.2rem}
+.hero h1 em{font-style:italic;color:var(--acc)}
+.hero-sub{font-size:.98rem;color:var(--mut);max-width:520px;line-height:1.85;margin-bottom:2.6rem}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:2.4rem}
+.chip{padding:4px 13px;border-radius:100px;font-size:11px;font-family:var(--fm);border:1px solid var(--bdr);color:var(--mut)}
+.chip.b{border-color:rgba(56,189,248,.4);color:var(--acc);background:rgba(56,189,248,.07)}
+.chip.g{border-color:rgba(52,211,153,.4);color:var(--grn);background:rgba(52,211,153,.07)}
+.chip.p{border-color:rgba(167,139,250,.4);color:var(--pur);background:rgba(167,139,250,.07)}
+.chip.a{border-color:rgba(251,191,36,.4);color:var(--amb);background:rgba(251,191,36,.07)}
+.chip.o{border-color:rgba(251,146,60,.4);color:var(--org);background:rgba(251,146,60,.07)}
+.scroll-hint{font-family:var(--fm);font-size:11px;color:var(--mut);letter-spacing:.1em;animation:bob 2.2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(7px)}}
+
+.ch{max-width:940px;margin:0 auto;padding:5.5rem 2rem}
+.ch-num{font-family:var(--fm);font-size:10px;color:var(--mut);letter-spacing:.2em;text-transform:uppercase;margin-bottom:.5rem}
+.ch h2{font-family:var(--fd);font-size:clamp(1.8rem,4vw,3rem);font-weight:700;line-height:1.15;margin-bottom:.8rem}
+.ch h2 span{color:var(--acc)}.ch h2 em{font-style:italic;color:var(--grn)}
+.lead{font-size:1rem;color:var(--text);max-width:720px;line-height:1.85;margin-bottom:1.4rem;font-weight:300}
+.intro{font-size:.88rem;color:var(--mut);max-width:680px;line-height:1.85;margin-bottom:1.8rem}
+hr.div{border:none;border-top:1px solid var(--bdr);max-width:940px;margin:0 auto}
+
+.viz{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;margin:1.8rem 0}
+.viz-hd{font-family:var(--fm);font-size:10px;color:var(--mut);padding:9px 16px;border-bottom:1px solid var(--bdr);letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.viz-hd span{color:var(--acc)}
+canvas{display:block;width:100%}
+
+.code{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:1.1rem 1.4rem;font-family:var(--fm);font-size:11px;line-height:1.9;overflow-x:auto;margin:1rem 0;white-space:pre}
+.kw{color:#7dd3fc}.str{color:#86efac}.cm{color:#374151}.fn{color:#fbbf24}.num{color:#c4b5fd}.op{color:#f9a8d4}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:1.5rem 0}
+.card{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:1.1rem 1.3rem}
+.card-icon{font-size:1.3rem;margin-bottom:.5rem}
+.card h4{font-size:.87rem;font-weight:500;margin-bottom:.35rem}
+.card p{font-size:.8rem;color:var(--mut);line-height:1.7}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1.2rem 0}
+.info{background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:1rem 1.2rem;font-size:.85rem}
+.info h4{font-size:.85rem;font-weight:500;margin-bottom:.5rem}
+.info ul{padding-left:16px;color:var(--mut);line-height:1.85}
+
+.formula{text-align:center;font-family:var(--fd);font-size:1.3rem;font-style:italic;padding:1.4rem;border:1px solid var(--bdr);border-radius:10px;background:var(--sur);margin:1.3rem 0}
+.formula span{color:var(--acc)}
+
+.pipe{display:flex;align-items:stretch;overflow-x:auto;margin:1.3rem 0;gap:0}
+.ps{flex:1;min-width:88px;border:1px solid var(--bdr);background:var(--sur);padding:.65rem .7rem;font-size:.72rem;text-align:center}
+.ps:first-child{border-radius:8px 0 0 8px}.ps:last-child{border-radius:0 8px 8px 0}
+.ps .pt{font-family:var(--fm);font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem}
+.ps .pb{color:var(--mut);font-size:.7rem;line-height:1.5}
+.pa{display:flex;align-items:center;padding:0 3px;color:var(--mut);font-size:.85rem;flex-shrink:0}
+
+.annotate{font-family:var(--fm);font-size:11px;color:var(--mut);border-left:2px solid var(--bdr);padding-left:12px;margin:1rem 0;line-height:1.85}
+.annotate b{color:var(--acc);font-weight:500}
+
+.alert{padding:11px 15px;border-radius:8px;font-size:.83rem;line-height:1.7;margin:1rem 0}
+.ai{border:1px solid rgba(56,189,248,.3);background:rgba(56,189,248,.06);color:var(--acc)}
+.ag{border:1px solid rgba(52,211,153,.3);background:rgba(52,211,153,.06);color:var(--grn)}
+.aw{border:1px solid rgba(251,191,36,.3);background:rgba(251,191,36,.06);color:var(--amb)}
+.ar{border:1px solid rgba(248,113,113,.3);background:rgba(248,113,113,.06);color:var(--red)}
+
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;margin:.8rem 0;align-items:center}
+.btn{padding:6px 16px;border-radius:6px;border:1px solid var(--bdr);background:var(--sur2);color:var(--text);font-family:var(--fm);font-size:11px;cursor:pointer;transition:all .15s}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btn.on{background:var(--acc);border-color:var(--acc);color:#07090f;font-weight:500}
+.sl-wrap{display:flex;align-items:center;gap:8px;font-family:var(--fm);font-size:11px;color:var(--mut)}
+input[type=range]{accent-color:var(--acc);width:110px}
+
+.row{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:.82rem;align-items:baseline}
+.row:last-child{border-bottom:none}
+.rk{font-family:var(--fm);color:var(--acc);min-width:170px;font-size:11px;flex-shrink:0}
+.rv{color:var(--mut);line-height:1.6}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500}
+.bg{background:rgba(52,211,153,.15);color:var(--grn)}.ba{background:rgba(251,191,36,.15);color:var(--amb)}
+.br{background:rgba(248,113,113,.15);color:var(--red)}.bb{background:rgba(56,189,248,.15);color:var(--acc)}
+.bo{background:rgba(251,146,60,.15);color:var(--org)}
+
+.case-banner{background:linear-gradient(135deg,rgba(56,189,248,.07),rgba(167,139,250,.07));border:1px solid rgba(56,189,248,.18);border-radius:12px;padding:1.3rem 1.6rem;margin:1.8rem 0}
+.case-banner .cb-tag{font-family:var(--fm);font-size:10px;color:var(--acc);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.4rem}
+.case-banner h3{font-family:var(--fd);font-size:1.35rem;margin-bottom:.4rem}
+.case-banner p{font-size:.84rem;color:var(--mut);line-height:1.75}
+
+.tab-nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+.tab-btn{padding:5px 13px;border-radius:6px;border:1px solid var(--bdr);background:var(--sur2);color:var(--mut);font-family:var(--fm);font-size:11px;cursor:pointer;transition:all .15s}
+.tab-btn:hover{border-color:var(--acc);color:var(--acc)}
+.tab-btn.on{background:rgba(56,189,248,.12);border-color:var(--acc);color:var(--acc)}
+.tab-panel{display:none}.tab-panel.on{display:block}
+
+footer{text-align:center;padding:3rem 2rem;border-top:1px solid var(--bdr);font-size:.78rem;color:var(--mut);font-family:var(--fm)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nl">opensearch</div>
+  <ul class="nav-links">
+    <li><a href="#intro">What is it</a></li>
+    <li><a href="#arch">Architecture</a></li>
+    <li><a href="#index">Indexing</a></li>
+    <li><a href="#search">Search &amp; Query</a></li>
+    <li><a href="#cluster">Cluster Ops</a></li>
+    <li><a href="#sharding">Sharding</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#ml">ML Features</a></li>
+    <li><a href="#casestudy">Case Study</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-grid"></div>
+  <div class="hero-tag">A visual walkthrough — beginner to expert</div>
+  <h1>OpenSearch —<br/><em>From Document</em><br/>to Distributed Search</h1>
+  <p class="hero-sub">Every concept, every component, every trade-off — how documents become searchable in milliseconds across terabytes of distributed data.</p>
+  <div class="chips">
+    <span class="chip b">Inverted Index</span>
+    <span class="chip g">Shards &amp; Replicas</span>
+    <span class="chip p">Cluster State</span>
+    <span class="chip a">Query DSL</span>
+    <span class="chip o">Aggregations</span>
+    <span class="chip b">k-NN / Vector Search</span>
+    <span class="chip g">Index Templates</span>
+    <span class="chip p">Security &amp; RBAC</span>
+  </div>
+  <div class="scroll-hint">↓ start the journey</div>
+</section>
+
+<!-- CASE STUDY BANNER -->
+<div style="max-width:940px;margin:0 auto;padding:0 2rem">
+  <div class="case-banner">
+    <div class="cb-tag">Case study — runs through every chapter</div>
+    <h3>LogFlow — a distributed log analytics platform</h3>
+    <p>Throughout this guide we'll build <strong>LogFlow</strong>: ingesting 50M log events/day from 200 microservices, powering full-text search, anomaly dashboards, k-NN similarity search, and real-time alerting — all on a 6-node OpenSearch cluster.</p>
+  </div>
+</div>
+
+<!-- ═══════════════ CH1: WHAT IS OPENSEARCH ═══════════════ -->
+<section class="ch" id="intro">
+  <div class="ch-num">Chapter 1</div>
+  <h2>What <span>OpenSearch</span> is<br/>and why it exists.</h2>
+  <p class="lead">OpenSearch is a community-driven, open-source search and analytics engine forked from Elasticsearch 7.10 in 2021. It stores, searches, and aggregates large volumes of semi-structured data — logs, metrics, documents, vectors — at millisecond speeds.</p>
+  <p class="intro">At its core, OpenSearch is a distributed document store with a powerful inverted index. Think of it as a search engine you can run yourself: you PUT documents in, you GET them back by searching field values, full text, or vector similarity — across billions of documents in under 100ms.</p>
+
+  <div class="viz">
+    <div class="viz-hd">opensearch vs a relational database — why it's different <span id="vs-label">showing: search query</span></div>
+    <canvas id="c-vs" height="200"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn on" onclick="setVS('search',this)">Full-text search</button>
+    <button class="btn" onclick="setVS('aggregate',this)">Aggregation</button>
+    <button class="btn" onclick="setVS('vector',this)">Vector similarity</button>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="card-icon">📄</div><h4>Document store</h4><p>Stores JSON documents. Each document is a record. Documents live in an index (like a table). Fields are typed: keyword, text, date, integer, dense_vector.</p></div>
+    <div class="card"><div class="card-icon">🔍</div><h4>Inverted index</h4><p>Every text field is tokenised and stored inverted: term → [doc1, doc5, doc9]. This is what makes full-text search across billions of docs take under 10ms.</p></div>
+    <div class="card"><div class="card-icon">📊</div><h4>Aggregation engine</h4><p>Compute metrics (sum, avg, percentiles), buckets (date_histogram, terms), and pipelines in one query. Like SQL GROUP BY but distributed and on arbitrary JSON.</p></div>
+    <div class="card"><div class="card-icon">🧠</div><h4>k-NN vector search</h4><p>Store dense vectors (embeddings) alongside documents. Search by cosine or L2 similarity. Powers semantic search, recommendation, anomaly detection.</p></div>
+  </div>
+
+  <div class="annotate">
+    <b>OpenSearch vs Elasticsearch:</b> OpenSearch is a fork of ES 7.10 with the same REST API. If you know ES, you know OpenSearch. Key differences: Apache 2.0 licence, Security plugin free (was commercial in ES), ML Commons built in.<br/>
+    <b>OpenSearch vs relational DB:</b> No joins. No ACID transactions. But: 1000× faster full-text search, horizontal scaling to petabytes, native time-series aggregations, vector search.
+  </div>
+</section>
+<hr class="div"/>
+
+<!-- ═══════════════ CH2: ARCHITECTURE ═══════════════ -->
+<section class="ch" id="arch">
+  <div class="ch-num">Chapter 2</div>
+  <h2>The <span>cluster</span> —<br/>nodes, roles, and state.</h2>
+  <p class="lead">An OpenSearch cluster is a group of nodes. Each node plays one or more roles. The cluster manager (formerly master) orchestrates them all. Understanding node roles is the foundation of everything else.</p>
+
+  <div class="viz">
+    <div class="viz-hd">cluster architecture — click any node to explore its role <span id="arch-info">6-node LogFlow cluster</span></div>
+    <canvas id="c-arch" height="340"></canvas>
+  </div>
+  <div id="arch-detail" style="margin-top:1rem"></div>
+
+  <div class="cards" style="margin-top:1.5rem">
+    <div class="card" style="border-color:rgba(56,189,248,.3)">
+      <div class="card-icon">👑</div>
+      <h4 style="color:var(--acc)">Cluster Manager</h4>
+      <p>Maintains cluster state: which indices exist, how many shards, which node holds which shard, node membership. Elected via Raft. 3 or 5 dedicated manager-eligible nodes for HA.</p>
+    </div>
+    <div class="card" style="border-color:rgba(52,211,153,.3)">
+      <div class="card-icon">💾</div>
+      <h4 style="color:var(--grn)">Data Node</h4>
+      <p>Stores shard data. Does indexing and search. CPU and memory intensive. Scale these horizontally for throughput. Keep heap at 50% of RAM, max 32GB (compressed OOPs limit).</p>
+    </div>
+    <div class="card" style="border-color:rgba(251,146,60,.3)">
+      <div class="card-icon">🚦</div>
+      <h4 style="color:var(--org)">Coordinating Node</h4>
+      <p>Routes requests, fans out to shards, merges results. Stateless. Put a load balancer in front. All nodes are coordinating by default — dedicated ones for high-query clusters.</p>
+    </div>
+    <div class="card" style="border-color:rgba(167,139,250,.3)">
+      <div class="card-icon">📥</div>
+      <h4 style="color:var(--pur)">Ingest Node</h4>
+      <p>Runs ingest pipelines before indexing: parse, enrich, transform documents. Like Logstash but built-in. LogFlow uses ingest to parse log timestamps and add geo-IP fields.</p>
+    </div>
+  </div>
+
+  <div class="viz">
+    <div class="viz-hd">cluster state — watch shard assignment when a node fails <span id="state-info">steady state</span></div>
+    <canvas id="c-state" height="180"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn" onclick="failNode()">Fail a data node</button>
+    <button class="btn" onclick="resetState()">Recover</button>
+  </div>
+
+  <div class="annotate">
+    <b>Cluster state</b> is a giant JSON blob maintained by the cluster manager and replicated to all nodes. It contains: index settings, mappings, shard routing, node membership. Changes to cluster state are serialised through the manager — it's the single source of truth.
+  </div>
+</section>
+<hr class="div"/>
+
+<!-- ═══════════════ CH3: INDEXING ═══════════════ -->
+<section class="ch" id="index">
+  <div class="ch-num">Chapter 3</div>
+  <h2>From JSON document<br/>to <span>inverted index</span>.</h2>
+  <p class="lead">When you index a document, OpenSearch tokenises every text field, builds an inverted index mapping each term to the documents containing it, and writes to a Lucene segment. Understanding this chain is what separates good from great search engineers.</p>
+
+  <div class="viz">
+    <div class="viz-hd">indexing pipeline — watch a log document journey into the inverted index <span id="idx-step">step 1 of 5</span></div>
+    <canvas id="c-index" height="240"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn" onclick="idxStep(-1)">← Back</button>
+    <button class="btn" onclick="idxStep(1)">Next →</button>
+    <button class="btn" onclick="idxStep(0,'reset')">Reset</button>
+  </div>
+  <div id="idx-detail" style="margin-top:1rem"></div>
+
+  <p style="font-family:var(--fm);font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.15em;margin:1.5rem 0 .8rem">The inverted index — interactive term lookup</p>
+
+  <div class="viz">
+    <div class="viz-hd">inverted index — type a term to see which documents it points to <span id="inv-info">search the index</span></div>
+    <canvas id="c-inverted" height="200"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn" onclick="searchTerm('error')">error</button>
+    <button class="btn" onclick="searchTerm('timeout')">timeout</button>
+    <button class="btn" onclick="searchTerm('payment')">payment</button>
+    <button class="btn" onclick="searchTerm('null')">null</button>
+    <button class="btn" onclick="searchTerm('database')">database</button>
+    <button class="btn" onclick="clearInv()">Clear</button>
+  </div>
+
+  <p style="font-family:var(--fm);font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.15em;margin:1.5rem 0 .8rem">Lucene segments — the write path</p>
+
+  <div class="two">
+    <div class="info">
+      <h4 style="color:var(--acc)">Write path</h4>
+      <ul>
+        <li>Document arrives → written to in-memory buffer + translog (WAL).</li>
+        <li><strong>Refresh</strong> (1s default) — buffer flushed to a new Lucene segment. Now searchable.</li>
+        <li><strong>Flush</strong> — translog committed to disk. Segment files persist. Safe from crash.</li>
+        <li><strong>Merge</strong> — background process combines small segments into larger ones. Reclaims deleted doc space.</li>
+      </ul>
+    </div>
+    <div class="info">
+      <h4 style="color:var(--grn)">Tuning for LogFlow</h4>
+      <ul>
+        <li><code style="font-family:var(--fm);font-size:10px">refresh_interval: 30s</code> — logs don't need 1s freshness. Reduces segment count, improves write throughput.</li>
+        <li><code style="font-family:var(--fm);font-size:10px">translog.durability: async</code> — async fsync. Risk: up to 5s of data loss on crash. Worth it for log pipelines.</li>
+        <li><code style="font-family:var(--fm);font-size:10px">index.codec: best_compression</code> — for cold log archives. 40-60% smaller. Slower reads.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="viz">
+    <div class="viz-hd">lucene segment lifecycle — refresh, flush, merge <span id="seg-info">documents: 0</span></div>
+    <canvas id="c-segments" height="160"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn" onclick="indexDocs(10)">Index 10 docs</button>
+    <button class="btn" onclick="triggerRefresh()">Force refresh</button>
+    <button class="btn" onclick="triggerMerge()">Force merge</button>
+    <button class="btn" onclick="resetSegs()">Reset</button>
+  </div>
+
+  <div class="code"><span class="cm"># LogFlow index with optimised settings for high-throughput log ingestion</span>
+<span class="kw">PUT</span> /logflow-2025-01
+{
+  <span class="kw">"settings"</span>: {
+    <span class="str">"index.number_of_shards"</span>: <span class="num">3</span>,
+    <span class="str">"index.number_of_replicas"</span>: <span class="num">1</span>,
+    <span class="str">"index.refresh_interval"</span>: <span class="str">"30s"</span>,
+    <span class="str">"index.translog.durability"</span>: <span class="str">"async"</span>
+  },
+  <span class="kw">"mappings"</span>: {
+    <span class="str">"properties"</span>: {
+      <span class="str">"@timestamp"</span>: {<span class="str">"type"</span>: <span class="str">"date"</span>},
+      <span class="str">"message"</span>:    {<span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"analyzer"</span>: <span class="str">"standard"</span>},
+      <span class="str">"level"</span>:       {<span class="str">"type"</span>: <span class="str">"keyword"</span>},
+      <span class="str">"service"</span>:     {<span class="str">"type"</span>: <span class="str">"keyword"</span>},
+      <span class="str">"trace_id"</span>:    {<span class="str">"type"</span>: <span class="str">"keyword"</span>, <span class="str">"index"</span>: <span class="num">false</span>},
+      <span class="str">"embedding"</span>:   {<span class="str">"type"</span>: <span class="str">"knn_vector"</span>, <span class="str">"dimension"</span>: <span class="num">768</span>}
+    }
+  }
+}</div>
+</section>
+<hr class="div"/>
+
+<!-- ═══════════════ CH4: SEARCH & QUERY ═══════════════ -->
+<section class="ch" id="search">
+  <div class="ch-num">Chapter 4</div>
+  <h2>Query DSL —<br/><span>how search works</span>.</h2>
+  <p class="lead">OpenSearch queries are JSON structures sent to the _search endpoint. They combine two concepts: <em>query</em> (which documents match?) and <em>aggregation</em> (what are the statistics?). Understanding relevance scoring and query types is essential.</p>
+
+  <div class="tab-nav">
+    <button class="tab-btn on" onclick="showQueryTab('match',this)">match query</button>
+    <button class="tab-btn" onclick="showQueryTab('bool',this)">bool query</button>
+    <button class="tab-btn" onclick="showQueryTab('range',this)">range filter</button>
+    <button class="tab-btn" onclick="showQueryTab('agg',this)">aggregation</button>
+    <button class="tab-btn" onclick="showQueryTab('knn',this)">k-NN vector</button>
+  </div>
+  <div id="query-panel"></div>
+
+  <p style="font-family:var(--fm);font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.15em;margin:1.5rem 0 .8rem">Relevance scoring — BM25</p>
+
+  <div class="viz">
+    <div class="viz-hd">BM25 scoring — how term frequency and doc length affect relevance <span id="bm25-info">score: –</span></div>
+    <canvas id="c-bm25" height="200"></canvas>
+  </div>
+  <div class="ctrl">
+    <div class="sl-wrap">Term freq (TF) <input type="range" id="sl-tf" min="1" max="10" value="3"> <span id="tf-val">3</span></div>
+    <div class="sl-wrap">Doc length <input type="range" id="sl-dl" min="10" max="500" value="100"> <span id="dl-val">100</span></div>
+    <div class="sl-wrap">Doc freq (DF) <input type="range" id="sl-df" min="1" max="1000" value="100"> <span id="df-val">100</span></div>
+  </div>
+
+  <div class="formula">
+    BM25 = IDF × <span>(TF · (k1+1)) / (TF + k1 · (1 − b + b · dl/avgdl))</span>
+  </div>
+  <div class="annotate">
+    <b>IDF</b> (inverse document frequency) — terms that appear in fewer documents get higher scores. "error" in 1000 of 1M docs scores higher than "the" in 999K docs.<br/>
+    <b>TF saturation</b> — BM25 saturates term frequency. The 10th occurrence of "error" contributes far less than the 1st. This prevents keyword stuffing from inflating scores.<br/>
+    <b>b=0.75</b> — length normalisation. Shorter documents with the same term count score higher. A log message with "error" once scores higher than a 10,000-word doc with "error" once.
+  </div>
+
+  <p style="font-family:var(--fm);font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.15em;margin:1.5rem 0 .8rem">Search execution — scatter-gather across shards</p>
+
+  <div class="viz">
+    <div class="viz-hd">query execution — coordinating node scatters to shards, gathers results <span id="search-info">idle</span></div>
+    <canvas id="c-search" height="200"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn" onclick="runSearch()">Run search query</button>
+    <button class="btn" onclick="resetSearch()">Reset</button>
+  </div>
+</section>
+<hr class="div"/>
+
+<!-- ═══════════════ CH5: CLUSTER OPS ═══════════════ -->
+<section class="ch" id="cluster">
+  <div class="ch-num">Chapter 5</div>
+  <h2>Cluster health,<br/><span>operations</span>, and ISM.</h2>
+  <p class="lead">A production OpenSearch cluster needs careful operational management: monitoring health, managing index lifecycle, controlling allocation, and handling rolling restarts without data loss.</p>
+
+  <div class="viz">
+    <div class="viz-hd">cluster health states — green, yellow, red explained <span id="health-info">click to simulate</span></div>
+    <canvas id="c-health" height="160"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn on" onclick="setHealth('green',this)">Green</button>
+    <button class="btn" onclick="setHealth('yellow',this)">Yellow</button>
+    <button class="btn" onclick="setHealth('red',this)">Red</button>
+  </div>
+  <div id="health-detail" style="margin-top:1rem"></div>
+
+  <p style="font-family:var(--fm);font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.15em;margin:1.5rem 0 .8rem">Index State Management (ISM) — automate the index lifecycle</p>
+
+  <div class="viz">
+    <div class="viz-hd">ISM policy — LogFlow log index lifecycle <span id="ism-state">hot phase</span></div>
+    <canvas id="c-ism" height="180"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn on" onclick="setISM('hot',this)">Hot</button>
+    <button class="btn" onclick="setISM('warm',this)">Warm</button>
+    <button class="btn" onclick="setISM('cold',this)">Cold</button>
+    <button class="btn" onclick="setISM('delete',this)">Delete</button>
+  </div>
+  <div id="ism-detail" style="margin-top:1rem"></div>
+
+  <div class="code"><span class="cm"># LogFlow ISM policy — hot→warm→cold→delete</span>
+<span class="kw">PUT</span> _plugins/_ism/policies/logflow-lifecycle
+{
+  <span class="kw">"policy"</span>: {
+    <span class="str">"states"</span>: [
+      {
+        <span class="str">"name"</span>: <span class="str">"hot"</span>,
+        <span class="str">"transitions"</span>: [{<span class="str">"state_name"</span>: <span class="str">"warm"</span>,
+          <span class="str">"conditions"</span>: {<span class="str">"min_size"</span>: <span class="str">"50gb"</span>}}]
+      },
+      {
+        <span class="str">"name"</span>: <span class="str">"warm"</span>,
+        <span class="str">"actions"</span>: [{<span class="str">"replica_count"</span>: {<span class="str">"number_of_replicas"</span>: <span class="num">0</span>}},
+                   {<span class="str">"force_merge"</span>: {<span class="str">"max_num_segments"</span>: <span class="num">1</span>}}],
+        <span class="str">"transitions"</span>: [{<span class="str">"state_name"</span>: <span class="str">"cold"</span>,
+          <span class="str">"conditions"</span>: {<span class="str">"min_index_age"</span>: <span class="str">"30d"</span>}}]
+      },
+      {
+        <span class="str">"name"</span>: <span class="str">"cold"</span>,
+        <span class="str">"actions"</span>: [{<span class="str">"read_only"</span>: {}}],
+        <span class="str">"transitions"</span>: [{<span class="str">"state_name"</span>: <span class="str">"delete"</span>,
+          <span class="str">"conditions"</span>: {<span class="str">"min_index_age"</span>: <span class="str">"90d"</span>}}]
+      },
+      {<span class="str">"name"</span>: <span class="str">"delete"</span>, <span class="str">"actions"</span>: [{<span class="str">"delete"</span>: {}}]}
+    ]
+  }
+}</div>
+</section>
+<hr class="div"/>
+
+<!-- ═══════════════ CH6: SHARDING ═══════════════ -->
+<section class="ch" id="sharding">
+  <div class="ch-num">Chapter 6</div>
+  <h2><span>Sharding</span> and replication —<br/>the hardest part.</h2>
+  <p class="lead">Sharding is how OpenSearch distributes data across nodes. Get it wrong and you'll either under-utilise hardware or hit the "too many shards" problem. This chapter covers sizing, routing, and rebalancing.</p>
+
+  <div class="viz">
+    <div class="viz-hd">shard routing — how a document finds its shard <span id="shard-info">idle</span></div>
+    <canvas id="c-shard" height="220"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn" onclick="routeDoc()">Route a document</button>
+    <button class="btn" onclick="resetShard()">Reset</button>
+    <div class="sl-wrap">Primary shards <input type="range" id="sl-shards" min="1" max="6" value="3"> <span id="shards-val">3</span></div>
+  </div>
+
+  <div class="formula">
+    shard = hash(<span>routing_value</span>) % number_of_primary_shards
+  </div>
+  <div class="annotate">
+    <b>routing_value</b> defaults to document _id. This distributes documents evenly. Override with <code style="font-family:var(--fm);font-size:10px">routing=tenant_id</code> to ensure all docs for a tenant land on the same shard — faster per-tenant searches.<br/>
+    <b>Critical:</b> You cannot change the number of primary shards after index creation. Get this right upfront. Rule of thumb: target 10–50 GB per shard, max 200M docs per shard.
+  </div>
+
+  <div class="two">
+    <div class="info">
+      <h4>Shard sizing — LogFlow</h4>
+      <ul>
+        <li>Daily ingest: 50M logs × ~500 bytes avg = 25 GB/day</li>
+        <li>Target 30 GB/shard → 1 shard per day initially</li>
+        <li>But: rollover when size hits 50 GB → 2 shards/day at peak</li>
+        <li>3 primary shards × 1 replica = 6 shards total per index</li>
+        <li>30 days retention × 6 shards = 180 shards. Well within 1000-shard soft limit.</li>
+      </ul>
+    </div>
+    <div class="info">
+      <h4>The too-many-shards problem</h4>
+      <ul>
+        <li>Each shard is a Lucene index: file handles, heap memory, segment overhead.</li>
+        <li>Rule: max 20 shards per GB of heap. 32GB heap = 640 shards max per node.</li>
+        <li>Symptom: cluster slowdown, high JVM GC, "circuit breaker" errors.</li>
+        <li>Fix: increase shard size (fewer, bigger shards), use ISM to delete old indices, force-merge old segments.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="viz">
+    <div class="viz-hd">replication — primary and replica shards across nodes <span id="rep-info">1 replica</span></div>
+    <canvas id="c-replication" height="200"></canvas>
+  </div>
+  <div class="ctrl">
+    <div class="sl-wrap">Replicas <input type="range" id="sl-replicas" min="0" max="2" value="1"> <span id="rep-val">1</span></div>
+    <button class="btn" onclick="failReplicaNode()">Fail a node</button>
+    <button class="btn" onclick="resetReplica()">Recover</button>
+  </div>
+  <div id="rep-detail" style="margin-top:.8rem;font-size:.82rem;color:var(--mut);font-family:var(--fm)"></div>
+</section>
+<hr class="div"/>
+
+<!-- ═══════════════ CH7: SECURITY ═══════════════ -->
+<section class="ch" id="security">
+  <div class="ch-num">Chapter 7</div>
+  <h2>Security — <span>TLS, RBAC</span>,<br/>and field-level control.</h2>
+  <p class="lead">OpenSearch Security (formerly Open Distro Security) provides TLS encryption, authentication, role-based access control, and document/field-level security — all free and built-in. This is a major differentiator from Elasticsearch.</p>
+
+  <div class="viz">
+    <div class="viz-hd">security model — layers from TLS to field-level <span id="sec-info">click a layer</span></div>
+    <canvas id="c-security" height="260"></canvas>
+  </div>
+  <div id="sec-detail" style="margin-top:1rem"></div>
+
+  <div class="two" style="margin-top:1.5rem">
+    <div class="info">
+      <h4>RBAC components</h4>
+      <ul>
+        <li><strong>Users</strong> — authenticate via LDAP, SAML, OpenID, or internal user database.</li>
+        <li><strong>Roles</strong> — define permissions: which indices, which actions (read/write/admin), which fields.</li>
+        <li><strong>Role mappings</strong> — map users or LDAP groups to roles.</li>
+        <li><strong>Action groups</strong> — named sets of actions (e.g., "CRUD" = create+read+update+delete).</li>
+      </ul>
+    </div>
+    <div class="info">
+      <h4>LogFlow RBAC — multi-tenant isolation</h4>
+      <ul>
+        <li><strong>service-reader</strong> role: read logflow-* indices, filtered by <code style="font-family:var(--fm);font-size:10px">{"term":{"service":"payment-service"}}</code>.</li>
+        <li><strong>ops-admin</strong> role: full access to all logflow-* indices, cluster health, ISM.</li>
+        <li><strong>ml-reader</strong> role: read access + _search + ML inference endpoint.</li>
+        <li>Field-level: <code style="font-family:var(--fm);font-size:10px">trace_id</code> field excluded from service-reader role (PII isolation).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code"><span class="cm"># Document-level security — each service only sees its own logs</span>
+<span class="kw">PUT</span> _plugins/_security/api/roles/payment-readonly
+{
+  <span class="kw">"index_permissions"</span>: [{
+    <span class="str">"index_patterns"</span>: [<span class="str">"logflow-*"</span>],
+    <span class="str">"allowed_actions"</span>: [<span class="str">"read"</span>],
+    <span class="str">"dls"</span>: <span class="str">"{\"term\":{\"service\":\"payment-service\"}}"</span>,
+    <span class="str">"fls"</span>: [<span class="str">"~trace_id"</span>, <span class="str">"~user_id"</span>]  <span class="cm">// exclude PII fields</span>
+  }]
+}</div>
+</section>
+<hr class="div"/>
+
+<!-- ═══════════════ CH8: ML FEATURES ═══════════════ -->
+<section class="ch" id="ml">
+  <div class="ch-num">Chapter 8</div>
+  <h2>ML Commons —<br/><span>k-NN, anomaly detection</span>,<br/>and neural search.</h2>
+  <p class="lead">OpenSearch ML Commons brings machine learning inside the search engine. k-NN vector search, anomaly detection on time series, and neural search (semantic + keyword hybrid) — all without an external ML system.</p>
+
+  <div class="viz">
+    <div class="viz-hd">k-NN vector search — semantic similarity vs keyword match <span id="knn-info">add vectors then search</span></div>
+    <canvas id="c-knn" height="280"></canvas>
+  </div>
+  <div class="ctrl">
+    <button class="btn" onclick="knnAddDocs()">Add log embeddings</button>
+    <button class="btn" onclick="knnSearch()">k-NN search: "payment timeout"</button>
+    <button class="btn" onclick="knnClear()">Clear</button>
+  </div>
+
+  <div class="annotate">
+    <b>How it works:</b> Embed your log message with a model (e.g. sentence-transformers/all-MiniLM). Store the 768-dim vector in a knn_vector field. At search time, embed the query and find the k nearest neighbours using HNSW (Hierarchical Navigable Small World) graph.<br/>
+    <b>Why it matters:</b> Keyword search misses "connection refused" when you search "network failure". k-NN finds semantically similar logs even if they share no keywords.
+  </div>
+
+  <div class="two" style="margin-top:1.5rem">
+    <div class="info">
+      <h4 style="color:var(--acc)">HNSW — the index structure</h4>
+      <ul>
+        <li>Hierarchical Navigable Small World graph — like a skip list for vectors.</li>
+        <li>Build time: O(N log N). Query time: O(log N). Approximate — not exact.</li>
+        <li>Parameters: <code style="font-family:var(--fm);font-size:10px">m</code> (connectivity, 16–64), <code style="font-family:var(--fm);font-size:10px">ef_construction</code> (build quality, 128–512).</li>
+        <li>Higher m = better recall, more memory. Tune for your accuracy/speed target.</li>
+      </ul>
+    </div>
+    <div class="info">
+      <h4 style="color:var(--grn)">Anomaly Detection plugin</h4>
+      <ul>
+        <li>Random Cut Forest algorithm on time-series metrics.</li>
+        <li>Detector on LogFlow: error_rate per service, p99 latency.</li>
+        <li>Real-time: scores every data point, fires alert when score &gt; threshold.</li>
+        <li>Integrates with Dashboards for visualisation and alerting.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code"><span class="cm"># Hybrid search — BM25 keyword + k-NN semantic, combined with RRF</span>
+<span class="kw">GET</span> /logflow-*/_search
+{
+  <span class="kw">"query"</span>: {
+    <span class="str">"hybrid"</span>: {
+      <span class="str">"queries"</span>: [
+        {<span class="str">"match"</span>: {<span class="str">"message"</span>: <span class="str">"payment timeout"</span>}},
+        {<span class="str">"knn"</span>: {<span class="str">"embedding"</span>: {
+          <span class="str">"vector"</span>: [<span class="num">0.12</span>, <span class="num">0.34</span>, <span class="str">"..."</span>],
+          <span class="str">"k"</span>: <span class="num">10</span>
+        }}}
+      ]
+    }
+  },
+  <span class="kw">"search_pipeline"</span>: {
+    <span class="str">"phase_results_processors"</span>: [
+      {<span class="str">"normalization-processor"</span>: {<span class="str">"technique"</span>: <span class="str">"rrf"</span>}}
+    ]
+  }
+}</div>
+</section>
+<hr class="div"/>
+
+<!-- ═══════════════ CH9: CASE STUDY ═══════════════ -->
+<section class="ch" id="casestudy">
+  <div class="ch-num">Chapter 9</div>
+  <h2><em>LogFlow</em> —<br/>all concepts <span>together</span>.</h2>
+  <p class="lead">The complete LogFlow architecture: 50M logs/day, 6-node cluster, full-text search, k-NN anomaly detection, multi-tenant RBAC, ISM lifecycle — every chapter in one living system.</p>
+
+  <div class="viz">
+    <div class="viz-hd">LogFlow complete architecture — click any component <span id="cs-info">click to explore</span></div>
+    <canvas id="c-case" height="380"></canvas>
+  </div>
+  <div id="cs-detail" style="margin-top:1rem"></div>
+
+  <div class="cards" style="margin-top:1.5rem">
+    <div class="card"><div class="card-icon">📥</div><h4>Ingest path</h4><p>Filebeat → OpenSearch Ingest node → parse timestamp + add service tag + enrich geo-IP → index to logflow-{date}.</p></div>
+    <div class="card"><div class="card-icon">🔍</div><h4>Search path</h4><p>Kibana/OSD query → coordinating node → scatter to 3 primary shards → BM25 score → gather top-K → merge + return.</p></div>
+    <div class="card"><div class="card-icon">🧠</div><h4>ML path</h4><p>Log embeddings computed by ML node → stored in knn_vector field → HNSW index → semantic search + anomaly scoring.</p></div>
+    <div class="card"><div class="card-icon">🗄️</div><h4>Lifecycle</h4><p>ISM: hot (0-7d, 1 replica, 30s refresh) → warm (7-30d, 0 replicas, force-merge) → cold (30-90d, read-only) → delete.</p></div>
+  </div>
+
+  <p style="font-family:var(--fm);font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.15em;margin:1.5rem 0 .8rem">Back-of-envelope sizing for LogFlow</p>
+
+  <div class="row"><span class="rk">Daily ingest</span><span class="rv">50M docs × 500B avg = 25 GB raw. After compression: ~10 GB/day. With 1 replica: 20 GB/day stored.</span></div>
+  <div class="row"><span class="rk">Shards per index</span><span class="rv">1 daily index, 3 primary + 3 replica = 6 shards. Target 10-20 GB/primary shard.</span></div>
+  <div class="row"><span class="rk">Heap sizing</span><span class="rv">32 GB heap per data node (compressed OOPs limit). 6 data nodes = 192 GB total heap. Rule: max 20 shards/GB → 640 shards/node.</span></div>
+  <div class="row"><span class="rk">Retention</span><span class="rv">30 days hot × 6 shards = 180 shards. 60 days warm × 3 shards (no replica) = 180 shards. Total: 360 shards. Comfortable.</span></div>
+  <div class="row"><span class="rk">Query latency</span><span class="rv">p99 full-text search: &lt;100ms. k-NN with HNSW ef_search=256: &lt;50ms at 10M vectors. Aggregation on 30 days: &lt;3s.</span></div>
+
+  <div class="alert ag" style="margin-top:1.5rem">
+    <strong>The one-sentence mental model:</strong> OpenSearch is a distributed inverted-index engine — documents in, tokens mapped to posting lists, BM25 scored, sharded across nodes, replicated for availability, secured with RBAC, queried via JSON DSL, and increasingly ML-augmented with k-NN and anomaly detection.
+  </div>
+</section>
+
+<footer>
+  <p>OpenSearch Visual Walkthrough — LogFlow case study · All concepts from Inverted Index to k-NN</p>
+  <p style="margin-top:.4rem;opacity:.5">Indexing · Sharding · Cluster Ops · Query DSL · Security · ML Commons · ISM</p>
+</footer>
+
+<script>
+const D=window.devicePixelRatio||1;
+const _sz={};
+function ic(id,th){
+  const c=document.getElementById(id);
+  if(!c)return{ctx:null,w:600,h:th||200,c:null};
+  const p=c.parentElement.getBoundingClientRect();
+  const pw=Math.max(p.width||600,200),ph=th||200;
+  if(!_sz[id]||_sz[id][0]!==pw||_sz[id][1]!==ph){
+    c.width=pw*D;c.height=ph*D;c.style.width=pw+'px';c.style.height=ph+'px';
+    _sz[id]=[pw,ph];c.getContext('2d').scale(D,D);
+  }
+  return{ctx:c.getContext('2d'),w:pw,h:ph,c};
+}
+function H(hex,a){
+  if(!hex||typeof hex!=='string')return'rgba(128,128,128,'+(a===undefined?1:a)+')';
+  const s=hex.replace('#','');
+  if(s.length<6)return'rgba(128,128,128,'+(a===undefined?1:a)+')';
+  return'rgba('+parseInt(s.slice(0,2),16)+','+parseInt(s.slice(2,4),16)+','+parseInt(s.slice(4,6),16)+','+(a===undefined?1:a)+')';
+}
+const C={a:'#38bdf8',g:'#34d399',am:'#fbbf24',r:'#f87171',p:'#a78bfa',cy:'#22d3ee',m:'#4a6380',o:'#fb923c',pk:'#f472b6'};
+
+// NAV
+document.querySelectorAll('section[id]').forEach(s=>new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){document.querySelectorAll('.nav-links a').forEach(a=>a.classList.remove('on'));const x=document.querySelector(`.nav-links a[href="#${e.target.id}"]`);if(x)x.classList.add('on');}});},{threshold:.2}).observe(s));
+
+// ═══ CH1: VS DEMO ═══
+let vsMode='search',vsT=0;
+function setVS(m,btn){vsMode=m;document.querySelectorAll('#c-vs').forEach(()=>{});document.querySelectorAll('.ctrl .btn').forEach(b=>{});document.getElementById('vs-label').textContent='showing: '+m.replace('_',' ');document.querySelectorAll('.ch#intro .ctrl .btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+(function vsLoop(){
+  const {ctx,w,h}=ic('c-vs',200);
+  if(!ctx){requestAnimationFrame(vsLoop);return;}
+  ctx.clearRect(0,0,w,h);
+  const docs=[
+    {id:'doc1',msg:'ERROR: payment timeout after 5000ms',tags:['error','payment','timeout']},
+    {id:'doc2',msg:'INFO: order created successfully',tags:['info','order']},
+    {id:'doc3',msg:'WARN: database connection pool exhausted',tags:['warn','database','connection']},
+    {id:'doc4',msg:'ERROR: null pointer exception in payment module',tags:['error','null','payment']},
+    {id:'doc5',msg:'DEBUG: request latency 42ms',tags:['debug','latency']},
+  ];
+  const highlight=vsMode==='search'?['error','payment']:vsMode==='aggregate'?['error','warn']:[];
+  const knn_target=vsMode==='vector'?2:null;
+  docs.forEach((d,i)=>{
+    const y=10+i*36,active=highlight.some(h=>d.tags.includes(h))||(vsMode==='vector'&&(i===0||i===3));
+    ctx.fillStyle=active?H(C.g,.1):H(C.m,.05);
+    ctx.strokeStyle=active?C.g:H(C.m,.2);ctx.lineWidth=active?1.5:1;
+    ctx.beginPath();ctx.roundRect(10,y,w-20,30,4);ctx.fill();ctx.stroke();
+    ctx.font=`10px 'JetBrains Mono'`;ctx.fillStyle=active?C.g:H(C.m,.5);
+    ctx.fillText(d.msg.slice(0,Math.floor((w-60)/7)),20,y+19);
+    if(active){
+      const sc=vsMode==='search'?'score: '+(Math.random()*.5+.6).toFixed(3):vsMode==='aggregate'?'bucket: ERROR':vsMode==='vector'?'similarity: '+(Math.random()*.15+.82).toFixed(3):'';
+      ctx.fillStyle=C.g;ctx.textAlign='right';ctx.fillText(sc,w-16,y+19);ctx.textAlign='left';
+    }
+  });
+  // query label
+  const qText=vsMode==='search'?'match: "payment error"':vsMode==='aggregate'?'terms agg on: level':'"payment timeout" → embedding → k=2';
+  ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=H(C.a,.7);ctx.fillText('Query: '+qText,10,h-6);
+  vsT++;requestAnimationFrame(vsLoop);
+})();
+
+// ═══ CH2: ARCHITECTURE ═══
+const archNodes=[
+  {id:'cm',x:.5,y:.12,label:'Cluster Manager',sub:'Raft consensus · cluster state',col:C.a,role:'Cluster Manager (dedicated)',desc:'Maintains the global cluster state — index mappings, shard routing table, node membership. Elected via Raft consensus among 3 manager-eligible nodes. Never stores data. Dedicated manager nodes prevent data traffic from impacting cluster state updates.'},
+  {id:'d1',x:.18,y:.5,label:'Data Node 1',sub:'Shards P0-R1',col:C.g,role:'Data Node',desc:'Stores primary shard 0 (P0) and replica shard 1 (R1). Handles search and indexing for those shards. 32 GB heap, 128 GB RAM, NVMe SSD. All disk I/O goes through Lucene segment files.'},
+  {id:'d2',x:.5,y:.5,label:'Data Node 2',sub:'Shards P1-R2',col:C.g,role:'Data Node',desc:'Stores primary shard 1 (P1) and replica shard 2 (R2). OpenSearch ensures no primary and its replica share the same node — if this node dies, R2 on Node 3 is promoted to primary automatically.'},
+  {id:'d3',x:.82,y:.5,label:'Data Node 3',sub:'Shards P2-R0',col:C.g,role:'Data Node',desc:'Stores primary shard 2 (P2) and replica shard 0 (R0). With 3 data nodes and 3 primary + 3 replica shards, each node holds exactly 2 shards — perfectly balanced.'},
+  {id:'co',x:.18,y:.82,label:'Coordinating',sub:'Routes queries',col:C.o,role:'Coordinating Node',desc:'Receives all client requests. Fans out search queries to all relevant shards (scatter phase). Merges and scores results from each shard (gather phase). Completely stateless — no data stored. LogFlow puts an ALB in front of 2 dedicated coordinating nodes.'},
+  {id:'in',x:.82,y:.82,label:'Ingest Node',sub:'Pipeline processor',col:C.p,role:'Ingest Node',desc:'Runs ingest pipelines before documents are indexed. LogFlow uses it to: parse @timestamp from raw log strings, extract service name from log path, enrich with geo-IP, and redact PII fields. Like Logstash but built into OpenSearch.'},
+];
+let archSelected=null;
+(function archLoop(){
+  const {ctx,w,h}=ic('c-arch',340);
+  if(!ctx){requestAnimationFrame(archLoop);return;}
+  ctx.clearRect(0,0,w,h);
+  const edges=[['cm','d1'],['cm','d2'],['cm','d3'],['co','d1'],['co','d2'],['co','d3'],['in','d1']];
+  edges.forEach(([a,b])=>{
+    const na=archNodes.find(n=>n.id===a),nb=archNodes.find(n=>n.id===b);
+    ctx.strokeStyle=H(C.m,.2);ctx.lineWidth=1;ctx.setLineDash([3,5]);
+    ctx.beginPath();ctx.moveTo(na.x*w,na.y*h);ctx.lineTo(nb.x*w,nb.y*h);ctx.stroke();ctx.setLineDash([]);
+  });
+  archNodes.forEach(n=>{
+    const active=archSelected===n.id,x=n.x*w,y=n.y*h;
+    ctx.fillStyle=active?H(n.col,.18):H(n.col,.07);
+    ctx.strokeStyle=active?n.col:H(n.col,.3);ctx.lineWidth=active?2:1;
+    ctx.beginPath();ctx.roundRect(x-52,y-26,104,52,8);ctx.fill();ctx.stroke();
+    ctx.font=`500 10px 'JetBrains Mono'`;ctx.fillStyle=active?n.col:H(n.col,.6);ctx.textAlign='center';
+    ctx.fillText(n.label,x,y-10);ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=H(n.col,.4);ctx.fillText(n.sub,x,y+6);
+    ctx.fillStyle=H(n.col,.25);ctx.fillText(n.role,x,y+18);
+  });
+  ctx.textAlign='left';
+  requestAnimationFrame(archLoop);
+})();
+document.getElementById('c-arch').addEventListener('click',function(e){
+  const rect=this.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,w=rect.width,h=rect.height;
+  const hit=archNodes.find(n=>Math.abs(n.x*w-mx)<52&&Math.abs(n.y*h-my)<26);
+  if(hit){archSelected=hit.id;document.getElementById('arch-info').textContent=hit.label;document.getElementById('arch-detail').innerHTML=`<div style="background:var(--sur);border:1px solid var(--bdr);border-left:3px solid ${hit.col};border-radius:8px;padding:1rem 1.2rem"><div style="font-family:var(--fm);font-size:10px;color:${hit.col};text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">${hit.role}</div><p style="font-size:.84rem;color:var(--mut);line-height:1.75">${hit.desc}</p></div>`;}
+});
+
+// ═══ CH2: CLUSTER STATE ═══
+let stateNodes=[{id:'n1',healthy:true},{id:'n2',healthy:true},{id:'n3',healthy:true}];
+let stateT=0;
+function failNode(){stateNodes[1].healthy=false;document.getElementById('state-info').textContent='node 2 failed → promoting replicas';}
+function resetState(){stateNodes.forEach(n=>n.healthy=true);document.getElementById('state-info').textContent='steady state';}
+(function stateLoop(){
+  const {ctx,w,h}=ic('c-state',180);
+  if(!ctx){requestAnimationFrame(stateLoop);return;}
+  ctx.clearRect(0,0,w,h);
+  const shards=[{p:'n1',r:'n2',name:'S0'},{p:'n2',r:'n3',name:'S1'},{p:'n3',r:'n1',name:'S2'}];
+  const nx=[.2,.5,.8];
+  stateNodes.forEach((n,i)=>{
+    const x=nx[i]*w,y=h*0.35;
+    ctx.fillStyle=n.healthy?H(C.g,.1):H(C.r,.1);
+    ctx.strokeStyle=n.healthy?C.g:C.r;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(x-40,y-22,80,44,6);ctx.fill();ctx.stroke();
+    ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=n.healthy?C.g:C.r;ctx.textAlign='center';
+    ctx.fillText('Node '+(i+1),x,y-6);ctx.fillText(n.healthy?'healthy':'FAILED',x,y+10);
+  });
+  // shards
+  shards.forEach((s,i)=>{
+    const ni=stateNodes.findIndex(n=>n.id==='n'+(i+1));
+    const pNode=stateNodes[ni];
+    const pi=nx[ni]*w;
+    const pY=h*.35+22+12+i*20;
+    const pHealthy=pNode.healthy;
+    ctx.fillStyle=pHealthy?H(C.a,.15):H(C.r,.1);ctx.strokeStyle=pHealthy?C.a:H(C.r,.4);ctx.lineWidth=.8;
+    ctx.beginPath();ctx.roundRect(pi-18,pY,36,14,3);ctx.fill();ctx.stroke();
+    ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=pHealthy?C.a:H(C.r,.5);ctx.textAlign='center';ctx.fillText(s.name+'P',pi,pY+10);
+    // replica
+    const ri=(i+1)%3;
+    const rx=nx[ri]*w;
+    const rNode=stateNodes[ri];
+    const rHealthy=rNode.healthy;
+    const promoted=!pHealthy&&rHealthy;
+    ctx.fillStyle=promoted?H(C.am,.2):rHealthy?H(C.g,.1):H(C.r,.1);
+    ctx.strokeStyle=promoted?C.am:rHealthy?H(C.g,.3):H(C.r,.3);ctx.lineWidth=.8;
+    ctx.beginPath();ctx.roundRect(rx+2,pY,36,14,3);ctx.fill();ctx.stroke();
+    ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=promoted?C.am:rHealthy?H(C.g,.5):H(C.r,.4);
+    ctx.fillText(promoted?s.name+'→P':s.name+'R',rx+20,pY+10);
+  });
+  ctx.textAlign='left';
+  stateT++;requestAnimationFrame(stateLoop);
+})();
+
+// ═══ CH3: INDEXING PIPELINE ═══
+let idxStepN=0;
+const idxSteps=[
+  {title:'Document arrives',col:C.a,desc:'A raw JSON document is sent via PUT /logflow-2025-01/_doc. The document: {"@timestamp":"2025-01-15T14:32:00Z","level":"ERROR","message":"payment timeout after 5000ms","service":"payment-service"}.'},
+  {title:'Ingest pipeline',col:C.p,desc:'The ingest node runs configured processors: date processor parses @timestamp → epoch. grok processor extracts structured fields from message. enrich processor adds geo-IP from client IP. PII redaction removes credit card numbers.'},
+  {title:'Routing & shard selection',col:C.o,desc:'hash(_id) % 3 = shard 2. The document is routed to the node holding primary shard 2. The routing is deterministic — the same _id always goes to the same shard, enabling efficient document lookups without cluster-wide broadcast.'},
+  {title:'In-memory buffer + translog',col:C.am,desc:'The document is written to an in-memory index buffer (for fast indexing throughput) and simultaneously appended to the translog (write-ahead log on disk). The translog ensures no data loss on crash — even if the segment isn\'t flushed yet.'},
+  {title:'Lucene segment + inverted index',col:C.g,desc:'On refresh (every 30s for LogFlow), the buffer is flushed to a new Lucene segment. Every text field is tokenised → terms stored in an inverted index → posting lists. The document is now searchable. Replica segments are written asynchronously.'},
+];
+function idxStep(d,cmd){
+  if(cmd==='reset'){idxStepN=0;}else{idxStepN=Math.max(0,Math.min(4,idxStepN+d));}
+  document.getElementById('idx-step').textContent=`step ${idxStepN+1} of 5`;
+  const s=idxSteps[idxStepN];
+  document.getElementById('idx-detail').innerHTML=`<div style="background:var(--sur);border:1px solid var(--bdr);border-left:3px solid ${s.col};border-radius:8px;padding:1rem 1.2rem"><div style="font-family:var(--fm);font-size:10px;color:${s.col};text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">${s.title}</div><p style="font-size:.84rem;color:var(--mut);line-height:1.75">${s.desc}</p></div>`;
+  drawIdx();
+}
+function drawIdx(){
+  const {ctx,w,h}=ic('c-index',240);
+  if(!ctx)return;
+  ctx.clearRect(0,0,w,h);
+  const stages=['JSON\nDoc','Ingest\nPipeline','Route\nShard','Buffer +\nTranslog','Lucene\nSegment'];
+  const cols=[C.a,C.p,C.o,C.am,C.g];
+  const n=stages.length,bw=(w-40)/n,sx=20;
+  stages.forEach((s,i)=>{
+    const x=sx+i*bw,active=i<=idxStepN,current=i===idxStepN;
+    const col=cols[i];
+    ctx.fillStyle=active?H(col,.15):H(col,.04);
+    ctx.strokeStyle=active?col:H(col,.15);ctx.lineWidth=current?2:1;
+    ctx.beginPath();ctx.roundRect(x+4,20,bw-8,h-40,8);ctx.fill();ctx.stroke();
+    ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=active?col:H(col,.3);ctx.textAlign='center';
+    s.split('\n').forEach((line,li)=>ctx.fillText(line,x+bw/2,h/2-6+li*16));
+    if(i<n-1&&active&&idxStepN>i){
+      ctx.fillStyle=cols[i+1];ctx.beginPath();ctx.moveTo(x+bw-2,h/2-4);ctx.lineTo(x+bw-2,h/2+4);ctx.lineTo(x+bw+4,h/2);ctx.closePath();ctx.fill();
+    }
+  });
+  ctx.textAlign='left';
+}
+window.addEventListener('load',()=>requestAnimationFrame(()=>idxStep(0,'reset')));
+
+// ═══ CH3: INVERTED INDEX ═══
+const invDocs=[
+  {id:'D1',msg:'ERROR payment timeout database'},
+  {id:'D2',msg:'INFO order created payment success'},
+  {id:'D3',msg:'WARN database connection pool'},
+  {id:'D4',msg:'ERROR null pointer payment module'},
+  {id:'D5',msg:'DEBUG request latency 42ms'},
+];
+const invIndex={};
+invDocs.forEach(d=>{d.msg.toLowerCase().split(' ').forEach(t=>{if(!invIndex[t])invIndex[t]=[];if(!invIndex[t].includes(d.id))invIndex[t].push(d.id);});});
+let invTerm=null;
+function searchTerm(t){invTerm=t;document.getElementById('inv-info').textContent='term: "'+t+'" → '+((invIndex[t]||[]).join(', ')||'not found');drawInverted();}
+function clearInv(){invTerm=null;document.getElementById('inv-info').textContent='search the index';drawInverted();}
+function drawInverted(){
+  const {ctx,w,h}=ic('c-inverted',200);
+  if(!ctx)return;
+  ctx.clearRect(0,0,w,h);
+  const hits=invTerm?(invIndex[invTerm]||[]):[];
+  // Terms column
+  const terms=Object.keys(invIndex).slice(0,8);
+  const tw=140,th=20,padY=10;
+  terms.forEach((t,i)=>{
+    const y=padY+i*th,active=t===invTerm;
+    ctx.fillStyle=active?H(C.am,.2):H(C.m,.06);ctx.strokeStyle=active?C.am:H(C.m,.15);ctx.lineWidth=active?1.5:1;
+    ctx.beginPath();ctx.roundRect(10,y,tw,th-2,3);ctx.fill();ctx.stroke();
+    ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=active?C.am:H(C.m,.5);ctx.fillText(t,16,y+13);
+  });
+  ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=H(C.a,.5);ctx.fillText('posting lists →',tw+16,padY+13);
+  // Posting list → docs
+  if(invTerm&&invIndex[invTerm]){
+    const postY=padY+terms.indexOf(invTerm)*(20)+10;
+    invIndex[invTerm].forEach((docId,i)=>{
+      const dx=tw+70+i*70,dy=padY+invDocs.findIndex(d=>d.id===docId)*36+8;
+      ctx.strokeStyle=H(C.am,.4);ctx.lineWidth=1;ctx.setLineDash([3,4]);
+      ctx.beginPath();ctx.moveTo(tw+10,postY);ctx.lineTo(dx,dy);ctx.stroke();ctx.setLineDash([]);
+    });
+  }
+  // Documents column
+  invDocs.forEach((d,i)=>{
+    const y=i*36+8,active=hits.includes(d.id);
+    ctx.fillStyle=active?H(C.g,.15):H(C.m,.04);ctx.strokeStyle=active?C.g:H(C.m,.1);ctx.lineWidth=active?1.5:.8;
+    ctx.beginPath();ctx.roundRect(tw+60,y,w-tw-70,30,4);ctx.fill();ctx.stroke();
+    ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=active?C.g:H(C.m,.4);ctx.fillText(d.id+': '+d.msg.slice(0,28)+'…',tw+66,y+18);
+  });
+}
+window.addEventListener('load',()=>requestAnimationFrame(drawInverted));
+
+// ═══ CH3: SEGMENTS ═══
+let segs=[],segDocCount=0,segT=0;
+function indexDocs(n){
+  segDocCount+=n;
+  document.getElementById('seg-info').textContent='documents: '+segDocCount+' · segments: '+segs.length;
+  // add to buffer
+  if(!segs.find(s=>s.type==='buffer'))segs.push({type:'buffer',docs:0,size:0});
+  segs.find(s=>s.type==='buffer').docs+=n;segs.find(s=>s.type==='buffer').size+=n*0.5;
+}
+function triggerRefresh(){
+  const buf=segs.find(s=>s.type==='buffer');
+  if(buf){segs=segs.filter(s=>s.type!=='buffer');segs.push({type:'segment',docs:buf.docs,size:buf.size,age:0});}
+  document.getElementById('seg-info').textContent='refreshed → new segment · '+segs.filter(s=>s.type==='segment').length+' segments';
+}
+function triggerMerge(){
+  const ss=segs.filter(s=>s.type==='segment');
+  if(ss.length>1){segs=segs.filter(s=>s.type!=='segment');const tot=ss.reduce((a,s)=>a+s.docs,0);segs.push({type:'segment',docs:tot,size:tot*.4,age:0});}
+  document.getElementById('seg-info').textContent='merged → 1 segment · '+segs.filter(s=>s.type==='segment').length+' segments';
+}
+function resetSegs(){segs=[];segDocCount=0;document.getElementById('seg-info').textContent='documents: 0';}
+(function segLoop(){
+  const {ctx,w,h}=ic('c-segments',160);
+  if(!ctx){requestAnimationFrame(segLoop);return;}
+  ctx.clearRect(0,0,w,h);
+  const allSegs=segs;
+  const maxSize=Math.max(10,...allSegs.map(s=>s.size));
+  const bw=Math.min(60,Math.max(20,(w-40)/Math.max(allSegs.length,1)));
+  allSegs.forEach((s,i)=>{
+    const bh=Math.max(10,(s.size/maxSize)*(h-50));
+    const x=20+i*(bw+6),y=h-30-bh;
+    const col=s.type==='buffer'?C.am:C.g;
+    ctx.fillStyle=H(col,.2);ctx.strokeStyle=col;ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(x,y,bw,bh,4);ctx.fill();ctx.stroke();
+    ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=col;ctx.textAlign='center';
+    ctx.fillText(s.type==='buffer'?'buf':('seg'+(i+1)),x+bw/2,y-4);
+    ctx.fillText(s.docs+'d',x+bw/2,h-16);
+  });
+  if(allSegs.length===0){ctx.font=`11px 'JetBrains Mono'`;ctx.fillStyle=H(C.m,.4);ctx.textAlign='center';ctx.fillText('index documents to see segments',w/2,h/2);ctx.textAlign='left';}
+  segT++;requestAnimationFrame(segLoop);
+})();
+
+// ═══ CH4: QUERY PANELS ═══
+const queryPanels={
+  match:{title:'match query — full-text search',code:`<span class="kw">GET</span> /logflow-*/_search\n{\n  <span class="kw">"query"</span>: {\n    <span class="str">"match"</span>: {\n      <span class="str">"message"</span>: <span class="str">"payment timeout"</span>\n    }\n  },\n  <span class="kw">"highlight"</span>: {<span class="str">"fields"</span>: {<span class="str">"message"</span>: {}}}\n}`,desc:'Tokenises the query string using the same analyser as the field. Searches for "payment" OR "timeout" by default. Use match_phrase for exact phrase. Use multi_match to search across multiple fields simultaneously.'},
+  bool:{title:'bool query — must, should, filter',code:`<span class="kw">GET</span> /logflow-*/_search\n{\n  <span class="kw">"query"</span>: {\n    <span class="str">"bool"</span>: {\n      <span class="str">"must"</span>:   [{<span class="str">"match"</span>: {<span class="str">"message"</span>: <span class="str">"error"</span>}}],\n      <span class="str">"filter"</span>: [\n        {<span class="str">"term"</span>:  {<span class="str">"service"</span>: <span class="str">"payment-service"</span>}},\n        {<span class="str">"range"</span>: {<span class="str">"@timestamp"</span>: {<span class="str">"gte"</span>: <span class="str">"now-1h"</span>}}}\n      ],\n      <span class="str">"must_not"</span>: [{<span class="str">"term"</span>: {<span class="str">"level"</span>: <span class="str">"DEBUG"</span>}}]\n    }\n  }\n}`,desc:'must: must match AND contributes to score. filter: must match but does NOT affect score. Cached. must_not: must not match. should: nice-to-have, boosts score. Always put high-cardinality keyword filters in filter clause — they are cached and applied first.'},
+  range:{title:'range filter — time-based queries',code:`<span class="kw">GET</span> /logflow-*/_search\n{\n  <span class="kw">"query"</span>: {\n    <span class="str">"range"</span>: {\n      <span class="str">"@timestamp"</span>: {\n        <span class="str">"gte"</span>: <span class="str">"2025-01-15T14:00:00Z"</span>,\n        <span class="str">"lt"</span>:  <span class="str">"2025-01-15T15:00:00Z"</span>,\n        <span class="str">"format"</span>: <span class="str">"strict_date_optional_time"</span>\n      }\n    }\n  },\n  <span class="kw">"sort"</span>: [{<span class="str">"@timestamp"</span>: {<span class="str">"order"</span>: <span class="str">"desc"</span>}}]\n}`,desc:'Range queries on date fields use the date histogram index structure — extremely fast. For time-series data, use date_nanos for nanosecond precision. The filter context caches range results for repeated queries over the same time window.'},
+  agg:{title:'aggregation — terms + date_histogram',code:`<span class="kw">GET</span> /logflow-*/_search\n{\n  <span class="kw">"size"</span>: <span class="num">0</span>,\n  <span class="kw">"aggs"</span>: {\n    <span class="str">"errors_over_time"</span>: {\n      <span class="str">"date_histogram"</span>: {\n        <span class="str">"field"</span>: <span class="str">"@timestamp"</span>,\n        <span class="str">"calendar_interval"</span>: <span class="str">"1h"</span>\n      },\n      <span class="str">"aggs"</span>: {\n        <span class="str">"by_service"</span>: {\n          <span class="str">"terms"</span>: {<span class="str">"field"</span>: <span class="str">"service"</span>, <span class="str">"size"</span>: <span class="num">10</span>}\n        }\n      }\n    }\n  }\n}`,desc:'size:0 means return no documents — only aggregation results. Nested aggregations: date_histogram buckets each containing a terms sub-aggregation. Returns error count per service per hour. Equivalent to SQL: SELECT service, date_trunc(\'hour\',ts), COUNT(*) FROM logs GROUP BY 1,2.'},
+  knn:{title:'k-NN vector search — semantic',code:`<span class="kw">GET</span> /logflow-*/_search\n{\n  <span class="kw">"query"</span>: {\n    <span class="str">"knn"</span>: {\n      <span class="str">"embedding"</span>: {\n        <span class="str">"vector"</span>: [<span class="num">0.12</span>, <span class="num">-0.34</span>, <span class="str">"…768 dims…"</span>],\n        <span class="str">"k"</span>: <span class="num">5</span>\n      }\n    }\n  },\n  <span class="kw">"_source"</span>: {<span class="str">"excludes"</span>: [<span class="str">"embedding"</span>]}\n}`,desc:'k-NN search uses HNSW approximate nearest neighbour. The embedding vector must match the dimension declared in the mapping. _source excludes embedding field from results (large, not useful in response). Combine with a bool filter to restrict k-NN to a subset (e.g. within one service) — use "filter" in the knn clause.'},
+};
+function showQueryTab(k,btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  const p=queryPanels[k];
+  document.getElementById('query-panel').innerHTML=`<div style="background:var(--sur);border:1px solid var(--bdr);border-left:3px solid ${C.a};border-radius:8px;padding:1rem 1.2rem;margin-bottom:.8rem"><div style="font-family:var(--fm);font-size:10px;color:${C.a};text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">${p.title}</div><p style="font-size:.83rem;color:var(--mut);line-height:1.75;margin-bottom:.8rem">${p.desc}</p><div class="code" style="margin:0">${p.code}</div></div>`;
+}
+window.addEventListener('load',()=>requestAnimationFrame(()=>showQueryTab('match',document.querySelector('.tab-btn.on'))));
+
+// ═══ CH4: BM25 ═══
+document.getElementById('sl-tf').oninput=function(){document.getElementById('tf-val').textContent=this.value;drawBM25();};
+document.getElementById('sl-dl').oninput=function(){document.getElementById('dl-val').textContent=this.value;drawBM25();};
+document.getElementById('sl-df').oninput=function(){document.getElementById('df-val').textContent=this.value;drawBM25();};
+function drawBM25(){
+  const {ctx,w,h}=ic('c-bm25',200);
+  if(!ctx)return;
+  ctx.clearRect(0,0,w,h);
+  const tf=parseInt(document.getElementById('sl-tf').value)||3;
+  const dl=parseInt(document.getElementById('sl-dl').value)||100;
+  const df=parseInt(document.getElementById('sl-df').value)||100;
+  const N=1000000,k1=1.2,b=0.75,avgdl=200;
+  const idf=Math.log((N-df+0.5)/(df+0.5)+1);
+  const tfNorm=(tf*(k1+1))/(tf+k1*(1-b+b*dl/avgdl));
+  const score=idf*tfNorm;
+  document.getElementById('bm25-info').textContent=`score: ${score.toFixed(3)} | IDF: ${idf.toFixed(2)} | TF norm: ${tfNorm.toFixed(2)}`;
+  // Component bars
+  const bars=[{label:'IDF',val:idf,max:14,col:C.a},{label:'TF norm',val:tfNorm,max:2.2,col:C.g},{label:'BM25 score',val:score,max:20,col:C.am}];
+  bars.forEach((b2,i)=>{
+    const y=30+i*52,bw=Math.min((b2.val/b2.max)*(w-160),w-160);
+    ctx.fillStyle=H(b2.col,.08);ctx.strokeStyle=H(b2.col,.2);ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(120,y,w-160,36,4);ctx.fill();ctx.stroke();
+    ctx.fillStyle=H(b2.col,.35);ctx.beginPath();ctx.roundRect(120,y,bw,36,4);ctx.fill();
+    ctx.font=`10px 'JetBrains Mono'`;ctx.fillStyle=b2.col;ctx.textAlign='right';ctx.fillText(b2.label,112,y+22);
+    ctx.textAlign='left';ctx.fillText(b2.val.toFixed(2),124+bw,y+22);
+  });
+  ctx.textAlign='left';
+}
+window.addEventListener('load',()=>requestAnimationFrame(drawBM25));
+
+// ═══ CH4: SEARCH EXECUTION ═══
+let searchT=0,searchPhase=0,searchRunning=false;
+function runSearch(){searchPhase=1;searchRunning=true;document.getElementById('search-info').textContent='scattering to shards…';}
+function resetSearch(){searchPhase=0;searchRunning=false;document.getElementById('search-info').textContent='idle';}
+(function searchLoop(){
+  const {ctx,w,h}=ic('c-search',200);
+  if(!ctx){requestAnimationFrame(searchLoop);return;}
+  ctx.clearRect(0,0,w,h);
+  if(searchRunning&&searchT%50===0){searchPhase++;if(searchPhase>=5){searchRunning=false;document.getElementById('search-info').textContent='results merged · 3ms total';}}
+  const shards=[{x:.25,label:'Shard 0\nP:Node1'},{x:.5,label:'Shard 1\nP:Node2'},{x:.75,label:'Shard 2\nP:Node3'}];
+  const coordY=h*.2,shardY=h*.65;
+  // coordinating node
+  const cactive=searchPhase>=1;
+  ctx.fillStyle=cactive?H(C.o,.15):H(C.m,.05);ctx.strokeStyle=cactive?C.o:H(C.m,.2);ctx.lineWidth=cactive?1.5:1;
+  ctx.beginPath();ctx.roundRect(w/2-60,coordY-20,120,40,6);ctx.fill();ctx.stroke();
+  ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=cactive?C.o:H(C.m,.4);ctx.textAlign='center';
+  ctx.fillText('Coordinating',w/2,coordY-4);ctx.fillText(searchPhase>=4?'merging results…':'routing query',w/2,coordY+10);
+  shards.forEach((s,i)=>{
+    const x=s.x*w,active=searchPhase>=2;
+    ctx.fillStyle=active?H(C.g,.1):H(C.m,.04);ctx.strokeStyle=active?C.g:H(C.m,.15);ctx.lineWidth=active?1.5:1;
+    ctx.beginPath();ctx.roundRect(x-45,shardY-20,90,40,6);ctx.fill();ctx.stroke();
+    ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=active?C.g:H(C.m,.3);ctx.textAlign='center';
+    s.label.split('\n').forEach((l,li)=>ctx.fillText(l,x,shardY-8+li*14));
+    // scatter arrow
+    if(searchPhase>=2){
+      const pct=Math.min(1,(searchT%50)/25);
+      const py=coordY+20+(shardY-20-coordY-20)*pct;
+      ctx.strokeStyle=H(C.o,.4);ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(w/2,coordY+20);ctx.lineTo(x,shardY-20);ctx.stroke();
+      ctx.fillStyle=C.o;ctx.beginPath();ctx.arc(w/2+(x-w/2)*pct,py,3,0,Math.PI*2);ctx.fill();
+    }
+    // gather arrow (results coming back)
+    if(searchPhase>=3){
+      ctx.strokeStyle=H(C.g,.4);ctx.lineWidth=1;ctx.setLineDash([3,4]);
+      ctx.beginPath();ctx.moveTo(x,shardY-20);ctx.lineTo(w/2,coordY+20);ctx.stroke();ctx.setLineDash([]);
+      if(active&&searchPhase===3){ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=C.g;ctx.fillText('top-K',x,shardY+28);}
+    }
+  });
+  ctx.textAlign='left';
+  searchT++;requestAnimationFrame(searchLoop);
+})();
+
+// ═══ CH5: HEALTH ═══
+const healthInfo={
+  green:{col:C.g,title:'Green — fully operational',desc:'All primary shards AND all replica shards are assigned and healthy. Every index is fully redundant. Normal operating state. No action needed.'},
+  yellow:{col:C.am,title:'Yellow — degraded (replicas unassigned)',desc:'All primary shards are assigned and operational — reads and writes work normally. But one or more replica shards are unassigned (node failure, new index before replicas can be placed). Data is not redundant. If another node fails, you could lose data or have an unassigned primary.'},
+  red:{col:C.r,title:'Red — data loss risk (primary unassigned)',desc:'At least one primary shard is unassigned. Reads and writes to that shard FAIL. The index is partially unavailable. Causes: node failure with no replica to promote, corrupted segment, out-of-disk. Immediate action required.'},
+};
+function setHealth(k,btn){
+  document.querySelectorAll('.ch#cluster .ctrl .btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  document.getElementById('health-info').textContent=k.toUpperCase();
+  const h=healthInfo[k];
+  document.getElementById('health-detail').innerHTML=`<div style="background:var(--sur);border:1px solid var(--bdr);border-left:3px solid ${h.col};border-radius:8px;padding:1rem 1.2rem"><div style="font-family:var(--fm);font-size:10px;color:${h.col};text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">${h.title}</div><p style="font-size:.84rem;color:var(--mut);line-height:1.75">${h.desc}</p></div>`;
+  drawHealth(k);
+}
+function drawHealth(k){
+  const {ctx,w,h}=ic('c-health',160);
+  if(!ctx)return;
+  ctx.clearRect(0,0,w,h);
+  const col=healthInfo[k].col;
+  const pulse=0.5;
+  ctx.fillStyle=H(col,.08);ctx.beginPath();ctx.arc(w/2,h/2,70,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=H(col,.3);ctx.beginPath();ctx.arc(w/2,h/2,40,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(w/2,h/2,14,0,Math.PI*2);ctx.fill();
+  ctx.font=`500 11px 'JetBrains Mono'`;ctx.fillStyle=col;ctx.textAlign='center';ctx.fillText(k.toUpperCase(),w/2,h/2+4);
+  const shardStates={green:['P','P','P','R','R','R'],yellow:['P','P','P','R','?','R'],red:['P','?','P','R','?','R']};
+  const states=shardStates[k];
+  states.forEach((s,i)=>{
+    const a=(i/states.length)*Math.PI*2-Math.PI/2,r=80;
+    const x=w/2+Math.cos(a)*r,y2=h/2+Math.sin(a)*r;
+    const c=s==='P'?C.g:s==='R'?C.a:C.r;
+    ctx.fillStyle=H(c,.25);ctx.strokeStyle=c;ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(x-12,y2-10,24,20,3);ctx.fill();ctx.stroke();
+    ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=c;ctx.textAlign='center';ctx.fillText(s,x,y2+4);
+  });
+  ctx.textAlign='left';
+}
+window.addEventListener('load',()=>requestAnimationFrame(()=>setHealth('green',document.querySelector('.ch#cluster .ctrl .btn.on'))));
+
+// ═══ CH5: ISM ═══
+const ismPhases={
+  hot:{col:C.o,title:'Hot phase — active writing',desc:'Full replicas (1), 30s refresh interval, active indexing. All primary shards on fast NVMe nodes. Holds last 7 days or 50GB, whichever comes first. Rollover creates a new index to prevent any single index from growing too large.'},
+  warm:{col:C.amb,title:'Warm phase — read-only, compressed',desc:'Replicas dropped to 0 (saves 50% storage). Force-merged to 1 segment (read performance, eliminates deleted-doc overhead). Moved to cheaper nodes. 30-90 days data. Still searchable.'},
+  cold:{col:C.a,title:'Cold phase — archived',desc:'Read-only flag set. Index may be moved to object storage (S3) via searchable snapshots. Very infrequent queries. No replica. 90+ days. If you need to search it, it\'s slow but possible.'},
+  delete:{col:C.r,title:'Delete — gone',desc:'Index permanently deleted after 90+ days. For compliance, take a snapshot to S3 first. ISM can snapshot before delete automatically.'},
+};
+function setISM(k,btn){
+  document.querySelectorAll('.ch#cluster .ctrl .btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  document.getElementById('ism-state').textContent=k+' phase';
+  const p=ismPhases[k];
+  document.getElementById('ism-detail').innerHTML=`<div style="background:var(--sur);border:1px solid var(--bdr);border-left:3px solid ${p.col};border-radius:8px;padding:1rem 1.2rem"><div style="font-family:var(--fm);font-size:10px;color:${p.col};text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">${p.title}</div><p style="font-size:.84rem;color:var(--mut);line-height:1.75">${p.desc}</p></div>`;
+  drawISM(k);
+}
+function drawISM(k){
+  const {ctx,w,h}=ic('c-ism',180);
+  if(!ctx)return;
+  ctx.clearRect(0,0,w,h);
+  const phases=['hot','warm','cold','delete'];
+  const cols=[C.o,C.am,C.a,C.r];
+  const labels=['Hot\n0-7d / 50GB','Warm\n7-30d','Cold\n30-90d','Delete\n90d+'];
+  const n=phases.length,bw=(w-40)/n,sx=20;
+  phases.forEach((p,i)=>{
+    const x=sx+i*bw,active=p===k;
+    const col=cols[i];
+    ctx.fillStyle=active?H(col,.2):H(col,.05);
+    ctx.strokeStyle=active?col:H(col,.2);ctx.lineWidth=active?2:1;
+    ctx.beginPath();ctx.roundRect(x+4,20,bw-8,h-40,8);ctx.fill();ctx.stroke();
+    ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=active?col:H(col,.35);ctx.textAlign='center';
+    labels[i].split('\n').forEach((l,li)=>ctx.fillText(l,x+bw/2,h/2-6+li*14));
+    if(i<n-1){
+      ctx.fillStyle=H(cols[i+1],.5);ctx.beginPath();ctx.moveTo(x+bw-2,h/2-4);ctx.lineTo(x+bw-2,h/2+4);ctx.lineTo(x+bw+4,h/2);ctx.closePath();ctx.fill();
+    }
+  });
+  ctx.textAlign='left';
+}
+window.addEventListener('load',()=>requestAnimationFrame(()=>setISM('hot',document.querySelector('.ch#cluster .ctrl .btn.on'))));
+
+// ═══ CH6: SHARD ROUTING ═══
+let shardT=0,shardRunning=false,shardDoc=null;
+const slShards=document.getElementById('sl-shards');
+slShards.oninput=function(){document.getElementById('shards-val').textContent=this.value;};
+function routeDoc(){
+  const n=parseInt(slShards.value)||3;
+  const docId='doc-'+Math.random().toString(36).slice(2,8);
+  const shard=Math.abs(hashStr(docId))%n;
+  shardDoc={id:docId,shard,n,t:0};
+  document.getElementById('shard-info').textContent=`hash("${docId}") % ${n} = shard ${shard}`;
+}
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return h;}
+function resetShard(){shardDoc=null;document.getElementById('shard-info').textContent='idle';}
+(function shardLoop(){
+  const {ctx,w,h}=ic('c-shard',220);
+  if(!ctx){requestAnimationFrame(shardLoop);return;}
+  ctx.clearRect(0,0,w,h);
+  const n=parseInt(slShards.value)||3;
+  const shardW=Math.min(80,(w-40)/n),shardY=h*.6;
+  const coordY=h*.2;
+  ctx.fillStyle=H(C.o,.1);ctx.strokeStyle=C.o;ctx.lineWidth=1;
+  ctx.beginPath();ctx.roundRect(w/2-50,coordY-15,100,30,6);ctx.fill();ctx.stroke();
+  ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=C.o;ctx.textAlign='center';ctx.fillText('Coordinating',w/2,coordY+3);
+  const sx=(w-(n*(shardW+8)-8))/2;
+  for(let i=0;i<n;i++){
+    const x=sx+i*(shardW+8),active=shardDoc&&shardDoc.shard===i;
+    ctx.fillStyle=active?H(C.g,.2):H(C.m,.05);ctx.strokeStyle=active?C.g:H(C.m,.2);ctx.lineWidth=active?2:1;
+    ctx.beginPath();ctx.roundRect(x,shardY-20,shardW,40,6);ctx.fill();ctx.stroke();
+    ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=active?C.g:H(C.m,.4);ctx.textAlign='center';
+    ctx.fillText('Shard '+i,x+shardW/2,shardY-4);ctx.fillText(active?'← HERE':'',x+shardW/2,shardY+12);
+  }
+  if(shardDoc){
+    const tx=sx+shardDoc.shard*(shardW+8)+shardW/2;
+    const pct=Math.min(1,(shardDoc.t||0)/40);
+    const py=coordY+15+(shardY-20-coordY-15)*pct;
+    ctx.fillStyle=C.am;ctx.beginPath();ctx.arc(tx,py,5,0,Math.PI*2);ctx.fill();
+    ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=C.am;ctx.textAlign='center';ctx.fillText(shardDoc.id,tx,py-10);
+    if(shardDoc.t<40)shardDoc.t++;
+  }
+  ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=H(C.m,.5);ctx.textAlign='left';
+  ctx.fillText('hash(doc_id) % '+n+' → deterministic routing',10,h-6);
+  ctx.textAlign='left';
+  shardT++;requestAnimationFrame(shardLoop);
+})();
+
+// ═══ CH6: REPLICATION ═══
+let repFailed=false,repT=0;
+document.getElementById('sl-replicas').oninput=function(){document.getElementById('rep-val').textContent=this.value;drawRep();};
+function failReplicaNode(){repFailed=true;document.getElementById('rep-detail').textContent='node 2 failed → replica on node 3 still serves reads';drawRep();}
+function resetReplica(){repFailed=false;document.getElementById('rep-detail').textContent='';drawRep();}
+function drawRep(){
+  const {ctx,w,h}=ic('c-replication',200);
+  if(!ctx)return;
+  ctx.clearRect(0,0,w,h);
+  const reps=parseInt(document.getElementById('sl-replicas').value)||1;
+  const nodeCount=Math.min(3+reps,6);
+  const nodes=Array.from({length:nodeCount},(_,i)=>({id:i,failed:repFailed&&i===1}));
+  const nw=(w-40)/nodeCount;
+  nodes.forEach((n,i)=>{
+    const x=30+i*nw+nw/2,y=h/2;
+    ctx.fillStyle=n.failed?H(C.r,.1):H(C.g,.07);ctx.strokeStyle=n.failed?C.r:H(C.g,.3);ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(x-nw/2+4,y-30,nw-8,60,6);ctx.fill();ctx.stroke();
+    ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=n.failed?C.r:H(C.m,.6);ctx.textAlign='center';
+    ctx.fillText('Node '+(i+1),x,y-12);ctx.fillText(n.failed?'FAILED':'',x,y+4);
+    // shard labels
+    const sl=i===0?'P0':(i===1&&reps>=1)?'P1':(i===2&&reps>=1)?'P2':(i===1&&reps>=1)?'R0':i<=reps?'R'+(i-1):'';
+    ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=sl.startsWith('P')?C.g:C.a;ctx.fillText(sl,x,y+18);
+  });
+  document.getElementById('rep-detail').textContent=repFailed?'replica promoted to primary — reads continue':'replicas: '+reps+' → '+reps+' copies of every shard';
+  ctx.textAlign='left';
+}
+window.addEventListener('load',()=>requestAnimationFrame(drawRep));
+
+// ═══ CH7: SECURITY LAYERS ═══
+const secLayers=[
+  {label:'TLS / mTLS',y:.12,col:C.a,desc:'All node-to-node and client-to-node traffic encrypted with TLS 1.2+. Optional mTLS for node authentication. Certificates managed via OpenSearch Security plugin. Prevents eavesdropping and MITM on inter-cluster traffic.'},
+  {label:'Authentication',y:.3,col:C.g,desc:'Supports: internal user database (bcrypt passwords), LDAP/Active Directory, SAML 2.0 (SSO), OpenID Connect, Kerberos, JWT bearer tokens. LogFlow uses OIDC for human users and JWT service accounts for Filebeat/Logstash.'},
+  {label:'Role-Based Access (RBAC)',y:.48,col:C.o,desc:'Roles define: which index patterns, which REST actions (read/write/admin), which document-level filter (DLS), which field-level exclusions (FLS). Role mappings bind users or LDAP groups to roles. Fine-grained enough for multi-tenant log platforms.'},
+  {label:'Document-Level Security',y:.66,col:C.am,desc:'Each search automatically applies a "hidden" filter based on the user\'s role. A payment-service engineer only sees {"term":{"service":"payment-service"}} documents — even on a shared index. Zero application code required.'},
+  {label:'Field-Level Security',y:.84,col:C.pur,desc:'Specific fields can be included or excluded per role. LogFlow excludes trace_id and user_id from the service-reader role (PII isolation). The user sees the document but sensitive fields are redacted server-side.'},
+];
+let secSelected=null;
+(function secLoop(){
+  const {ctx,w,h}=ic('c-security',260);
+  if(!ctx){requestAnimationFrame(secLoop);return;}
+  ctx.clearRect(0,0,w,h);
+  secLayers.forEach((l,i)=>{
+    const y=l.y*h,active=secSelected===i;
+    ctx.fillStyle=active?H(l.col,.15):H(l.col,.05);
+    ctx.strokeStyle=active?l.col:H(l.col,.2);ctx.lineWidth=active?2:1;
+    ctx.beginPath();ctx.roundRect(20,y-14,w-40,28,6);ctx.fill();ctx.stroke();
+    ctx.font=`${active?'500':'400'} 10px 'JetBrains Mono'`;ctx.fillStyle=active?l.col:H(l.col,.5);ctx.textAlign='center';
+    ctx.fillText(l.label,w/2,y+4);
+    if(i<secLayers.length-1){ctx.fillStyle=H(secLayers[i+1].col,.3);ctx.textAlign='center';ctx.fillText('↓',w/2,l.y*h+20);}
+  });
+  ctx.textAlign='left';
+  requestAnimationFrame(secLoop);
+})();
+document.getElementById('c-security').addEventListener('click',function(e){
+  const rect=this.getBoundingClientRect(),my=e.clientY-rect.top,h=rect.height;
+  const hit=secLayers.findIndex(l=>Math.abs(l.y*h-my)<16);
+  if(hit>=0){secSelected=hit;document.getElementById('sec-info').textContent=secLayers[hit].label;document.getElementById('sec-detail').innerHTML=`<div style="background:var(--sur);border:1px solid var(--bdr);border-left:3px solid ${secLayers[hit].col};border-radius:8px;padding:1rem 1.2rem"><div style="font-family:var(--fm);font-size:10px;color:${secLayers[hit].col};text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">${secLayers[hit].label}</div><p style="font-size:.84rem;color:var(--mut);line-height:1.75">${secLayers[hit].desc}</p></div>`;}
+});
+
+// ═══ CH8: k-NN ═══
+let knnPts=[],knnQuery=null;
+const knnLogs=['payment timeout error','null pointer payment','database connection fail','order created OK','request latency 42ms','user auth success','payment retry failed','index out of bounds','network timeout payment','memory heap overflow'];
+function knnAddDocs(){
+  knnPts=knnLogs.map((msg,i)=>({msg,x:0.15+Math.random()*.7,y:0.15+Math.random()*.7,group:msg.includes('payment')||msg.includes('timeout')||msg.includes('error')||msg.includes('fail')?0:1}));
+  document.getElementById('knn-info').textContent=knnPts.length+' vectors indexed';
+  drawKNN();
+}
+function knnSearch(){
+  knnQuery={x:.35,y:.35};
+  // find 3 nearest
+  const sorted=[...knnPts].sort((a,b)=>Math.hypot(a.x-knnQuery.x,a.y-knnQuery.y)-Math.hypot(b.x-knnQuery.x,b.y-knnQuery.y));
+  knnPts.forEach(p=>p.hit=sorted.indexOf(p)<3);
+  document.getElementById('knn-info').textContent='query: "payment timeout" → top-3 similar';
+  drawKNN();
+}
+function knnClear(){knnPts=[];knnQuery=null;document.getElementById('knn-info').textContent='add vectors then search';drawKNN();}
+function drawKNN(){
+  const {ctx,w,h}=ic('c-knn',280);
+  if(!ctx)return;
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle=H(C.m,.12);ctx.lineWidth=.5;
+  for(let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  const cols=[C.r,C.g];
+  knnPts.forEach(p=>{
+    const x=p.x*w,y=p.y*h,col=p.hit?C.am:cols[p.group];
+    ctx.fillStyle=H(col,p.hit?.3:.12);ctx.strokeStyle=p.hit?C.am:H(col,.4);ctx.lineWidth=p.hit?2:1;
+    ctx.beginPath();ctx.arc(x,y,p.hit?8:5,0,Math.PI*2);ctx.fill();ctx.stroke();
+    if(p.hit){ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=C.am;ctx.fillText(p.msg.slice(0,20),x+10,y+4);}
+    if(knnQuery&&p.hit){ctx.strokeStyle=H(C.am,.3);ctx.lineWidth=.8;ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(knnQuery.x*w,knnQuery.y*h);ctx.stroke();ctx.setLineDash([]);}
+  });
+  if(knnQuery){
+    ctx.fillStyle=H(C.am,.3);ctx.strokeStyle=C.am;ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(knnQuery.x*w,knnQuery.y*h,10,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.font=`9px 'JetBrains Mono'`;ctx.fillStyle=C.am;ctx.fillText('query vector',knnQuery.x*w+14,knnQuery.y*h+4);
+  }
+  if(knnPts.length===0){ctx.font=`11px 'JetBrains Mono'`;ctx.fillStyle=H(C.m,.4);ctx.textAlign='center';ctx.fillText('add log embeddings to explore k-NN',w/2,h/2);ctx.textAlign='left';}
+}
+window.addEventListener('load',()=>requestAnimationFrame(drawKNN));
+
+// ═══ CH9: CASE STUDY ═══
+const csComponents=[
+  {id:'fb',x:.1,y:.15,label:'Filebeat',sub:'log shipper',col:C.m,desc:'Collects logs from 200 microservices. Uses tail input, adds service metadata, ships to OpenSearch ingest endpoint. Backpressure-aware: slows down on 429 responses.'},
+  {id:'in',x:.32,y:.15,label:'Ingest Node',sub:'pipeline processor',col:C.p,desc:'Runs parse + enrich + redact pipeline. Adds @timestamp, extracts service tag, geo-IP enrichment, redacts PII. Routes to data nodes.'},
+  {id:'dn',x:.55,y:.15,label:'Data Nodes (3)',sub:'shards + inverted index',col:C.g,desc:'3 data nodes each holding 2 shards (1 primary + 1 replica of different shard). 32 GB heap each. NVMe SSD. All search and indexing happens here.'},
+  {id:'ml',x:.8,y:.15,label:'ML Node',sub:'k-NN + anomaly',col:C.am,desc:'Dedicated ML node for k-NN HNSW index and Random Cut Forest anomaly detector. Isolated from search nodes to prevent GC pressure from ML workloads impacting search latency.'},
+  {id:'cm',x:.32,y:.5,label:'Cluster Manager',sub:'cluster state',col:C.a,desc:'3 dedicated cluster manager nodes in Raft quorum. Maintains cluster state. Never holds data. Gossip protocol propagates state to all nodes every ~1s.'},
+  {id:'co',x:.55,y:.5,label:'Coordinating (2)',sub:'query routing',col:C.o,desc:'2 dedicated coordinating nodes behind an ALB. Receive all queries, fan out to shards, merge results. Handle aggregations. Stateless — safe to scale horizontally.'},
+  {id:'osd',x:.8,y:.5,label:'OpenSearch\nDashboards',sub:'UI + alerting',col:C.cyan,desc:'Visualisation layer. Log search, anomaly dashboards, ISM policy management, alerting configuration. Talks only to coordinating nodes.'},
+  {id:'ism',x:.1,y:.5,label:'ISM Policy',sub:'lifecycle mgmt',col:C.r,desc:'hot→warm→cold→delete lifecycle. hot: 7d, 1 replica. warm: 7-30d, 0 replicas, force-merge. cold: 30-90d, read-only. delete: 90d+. Saves 60% storage vs keeping all data hot.'},
+];
+let csSelected=null;
+(function csLoop(){
+  const {ctx,w,h}=ic('c-case',380);
+  if(!ctx){requestAnimationFrame(csLoop);return;}
+  ctx.clearRect(0,0,w,h);
+  const edges=[['fb','in'],['in','dn'],['dn','ml'],['cm','dn'],['cm','co'],['co','dn'],['co','osd'],['ism','dn']];
+  edges.forEach(([a,b])=>{
+    const na=csComponents.find(c=>c.id===a),nb=csComponents.find(c=>c.id===b);
+    if(!na||!nb)return;
+    ctx.strokeStyle=H(C.m,.18);ctx.lineWidth=1;ctx.setLineDash([3,5]);
+    ctx.beginPath();ctx.moveTo(na.x*w,na.y*h);ctx.lineTo(nb.x*w,nb.y*h);ctx.stroke();ctx.setLineDash([]);
+  });
+  csComponents.forEach(c=>{
+    const x=c.x*w,y=c.y*h,active=csSelected===c.id;
+    ctx.fillStyle=active?H(c.col,.18):H(c.col,.07);
+    ctx.strokeStyle=active?c.col:H(c.col,.25);ctx.lineWidth=active?2:1;
+    ctx.beginPath();ctx.roundRect(x-52,y-26,104,52,8);ctx.fill();ctx.stroke();
+    ctx.font=`500 10px 'JetBrains Mono'`;ctx.fillStyle=active?c.col:H(c.col,.6);ctx.textAlign='center';
+    c.label.split('\n').forEach((l,li)=>ctx.fillText(l,x,y-14+li*13));
+    ctx.font=`8px 'JetBrains Mono'`;ctx.fillStyle=H(c.col,.4);ctx.fillText(c.sub,x,y+14);
+  });
+  ctx.textAlign='left';
+  requestAnimationFrame(csLoop);
+})();
+document.getElementById('c-case').addEventListener('click',function(e){
+  const rect=this.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,w=rect.width,h=rect.height;
+  const hit=csComponents.find(c=>Math.abs(c.x*w-mx)<52&&Math.abs(c.y*h-my)<26);
+  if(hit){csSelected=hit.id;document.getElementById('cs-info').textContent=hit.label.replace('\n',' ');document.getElementById('cs-detail').innerHTML=`<div style="background:var(--sur);border:1px solid var(--bdr);border-left:3px solid ${hit.col};border-radius:8px;padding:1rem 1.2rem"><div style="font-family:var(--fm);font-size:10px;color:${hit.col};text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem">${hit.label.replace('\n',' ')}</div><p style="font-size:.84rem;color:var(--mut);line-height:1.75">${hit.desc}</p></div>`;}
+});
+</script>
+</body>
+</html>
