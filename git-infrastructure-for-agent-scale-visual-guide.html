@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <title>Git infrastructure at agent scale — visual guide</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f7f4;
+      --surface: #ffffff;
+      --surface-2: #edf1ed;
+      --ink: #17211d;
+      --muted: #56635d;
+      --line: #cfd8d2;
+      --green: #147d52;
+      --green-2: #0a5b3a;
+      --green-soft: #dff3e8;
+      --amber: #b75e0a;
+      --amber-soft: #fff0d8;
+      --red: #b43d3d;
+      --red-soft: #fde8e6;
+      --blue: #246c8f;
+      --blue-soft: #e1f0f7;
+      --code: #13201b;
+      --code-ink: #dcebe4;
+      --shadow: 0 18px 48px rgba(24, 44, 34, .09);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101512;
+        --surface: #181f1b;
+        --surface-2: #212a25;
+        --ink: #eef5f1;
+        --muted: #acbab2;
+        --line: #344239;
+        --green: #4fc48b;
+        --green-2: #8bdeb2;
+        --green-soft: #193b2b;
+        --amber: #f0a24b;
+        --amber-soft: #3c2b17;
+        --red: #ef8585;
+        --red-soft: #3f2425;
+        --blue: #76bada;
+        --blue-soft: #1b3440;
+        --code: #0a0f0c;
+        --code-ink: #d8e6de;
+        --shadow: 0 18px 48px rgba(0, 0, 0, .28);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Manrope, system-ui, sans-serif;
+      line-height: 1.55;
+    }
+    button, a { font: inherit; }
+    a { color: var(--green-2); }
+    .wrap { width: min(1160px, calc(100% - 40px)); margin: 0 auto; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 68px 0 48px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(90deg, transparent 0 49.8%, color-mix(in srgb, var(--line) 32%, transparent) 50%, transparent 50.2%) 0 0 / 38px 38px,
+        linear-gradient(transparent 0 49.8%, color-mix(in srgb, var(--line) 32%, transparent) 50%, transparent 50.2%) 0 0 / 38px 38px;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 420px; height: 420px;
+      border: 76px solid color-mix(in srgb, var(--green) 10%, transparent);
+      border-radius: 50%; right: -160px; top: -230px;
+      pointer-events: none;
+    }
+    .source-row { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .9rem; }
+    .source-row .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    h1 { max-width: 880px; margin: 20px 0 18px; font-size: clamp(2.3rem, 6vw, 5rem); line-height: .98; letter-spacing: -.055em; }
+    .lede { max-width: 730px; margin: 0; font-size: clamp(1.05rem, 2vw, 1.35rem); color: var(--muted); }
+    .thesis {
+      margin-top: 34px; max-width: 850px; padding: 18px 22px;
+      background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--green);
+      box-shadow: var(--shadow); font-weight: 650;
+    }
+    .rail {
+      position: sticky; top: 0; z-index: 20;
+      background: color-mix(in srgb, var(--bg) 92%, transparent);
+      backdrop-filter: blur(12px); border-bottom: 1px solid var(--line);
+    }
+    .rail-inner { display: flex; gap: 6px; overflow: auto; padding: 10px 0; scrollbar-width: none; }
+    .rail-inner::-webkit-scrollbar { display: none; }
+    .rail a { flex: 0 0 auto; text-decoration: none; color: var(--muted); padding: 7px 12px; border-radius: 8px; font-size: .84rem; font-weight: 700; }
+    .rail a:hover, .rail a:focus-visible { background: var(--surface-2); color: var(--ink); outline: none; }
+    section { padding: 76px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 64px; }
+    .section-head { display: grid; grid-template-columns: minmax(0, .7fr) minmax(280px, 1fr); gap: 40px; align-items: end; margin-bottom: 34px; }
+    .step { font: 600 .8rem/1 IBM Plex Mono, monospace; color: var(--green); margin-bottom: 14px; }
+    h2 { margin: 0; font-size: clamp(1.8rem, 4vw, 3.35rem); line-height: 1.04; letter-spacing: -.04em; }
+    .section-head p { margin: 0; color: var(--muted); font-size: 1.03rem; }
+    h3 { margin: 0 0 10px; font-size: 1.08rem; }
+    .mono { font-family: IBM Plex Mono, monospace; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
+    .metric { min-height: 172px; padding: 22px; border-right: 1px solid var(--line); display: flex; flex-direction: column; justify-content: space-between; }
+    .metric:last-child { border-right: 0; }
+    .metric strong { font-size: clamp(2rem, 4vw, 3.5rem); letter-spacing: -.05em; line-height: 1; color: var(--green-2); }
+    .metric span { color: var(--muted); font-size: .88rem; }
+    .metric b { color: var(--ink); }
+    .loop {
+      margin-top: 24px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+      background: var(--code); color: var(--code-ink); padding: 26px; border-radius: 18px;
+    }
+    .loop-step { position: relative; padding: 14px 28px 14px 14px; }
+    .loop-step:not(:last-child)::after { content: "→"; position: absolute; right: 7px; top: 38%; color: #72d4a5; font: 600 1.3rem IBM Plex Mono; }
+    .loop-step i { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid #456457; border-radius: 50%; font: normal 600 .75rem IBM Plex Mono; color: #72d4a5; }
+    .loop-step b { display: block; margin-top: 10px; }
+    .loop-step small { display: block; margin-top: 5px; color: #9ab2a6; }
+    .callout { margin-top: 16px; color: var(--muted); font-size: .92rem; }
+    .segmented { display: inline-flex; padding: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 18px; }
+    .segmented button { border: 0; background: transparent; color: var(--muted); padding: 9px 14px; border-radius: 7px; cursor: pointer; font-weight: 750; }
+    .segmented button.active { background: var(--surface); color: var(--ink); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .architecture { min-height: 565px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+    .arch-top { padding: 18px 22px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+    .arch-top strong { font-size: 1.05rem; }
+    .arch-top span { color: var(--muted); font-size: .84rem; text-align: right; }
+    .arch-panel { display: none; padding: 28px; }
+    .arch-panel.active { display: block; }
+    .request-cloud { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+    .chip { background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; font: 600 .73rem IBM Plex Mono; }
+    .arrow-down { width: 1px; height: 32px; margin: -18px auto 10px; background: var(--line); position: relative; }
+    .arrow-down::after { content: ""; position: absolute; left: -4px; bottom: -1px; border: 5px solid transparent; border-top-color: var(--line); }
+    .servers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    .server { min-height: 176px; padding: 14px; border: 1px solid var(--line); background: var(--surface-2); position: relative; }
+    .server::before { content: ""; display: block; width: 34px; height: 5px; background: var(--green); margin-bottom: 20px; }
+    .server b { display: block; font-size: .88rem; }
+    .server small { color: var(--muted); display: block; margin-top: 8px; }
+    .server .disk { position: absolute; bottom: 13px; left: 13px; right: 13px; padding: 7px; background: var(--surface); border: 1px solid var(--line); font: 500 .68rem IBM Plex Mono; text-align: center; }
+    .quorum { width: min(540px, 100%); margin: 18px auto 0; border: 1px dashed var(--amber); background: var(--amber-soft); padding: 12px; color: var(--ink); text-align: center; font-size: .84rem; }
+    .future-grid { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 18px; align-items: stretch; }
+    .layer { border: 1px solid var(--line); padding: 18px; background: var(--surface-2); }
+    .layer strong { display: block; }
+    .layer p { margin: 7px 0 0; color: var(--muted); font-size: .85rem; }
+    .workers { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 16px; }
+    .worker { border: 1px solid var(--line); background: var(--surface); padding: 10px; text-align: center; font: 600 .72rem IBM Plex Mono; }
+    .storage { background: var(--green-soft); border-color: color-mix(in srgb, var(--green) 50%, var(--line)); }
+    .maintenance { background: var(--blue-soft); }
+    .principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 18px; }
+    .principle { padding: 18px; border-top: 3px solid var(--green); background: var(--surface-2); }
+    .principle p { margin: 7px 0 0; color: var(--muted); font-size: .88rem; }
+    .tradeoff { display: grid; grid-template-columns: 1fr 54px 1fr; align-items: stretch; }
+    .trade-side { padding: 26px; border: 1px solid var(--line); background: var(--surface); }
+    .trade-side h3 { font-size: 1.35rem; }
+    .trade-arrow { display: grid; place-items: center; font: 600 1.5rem IBM Plex Mono; color: var(--green); }
+    .sliders { margin-top: 22px; display: grid; gap: 14px; }
+    .slider-row { display: grid; grid-template-columns: 155px 1fr 46px; gap: 12px; align-items: center; }
+    input[type="range"] { width: 100%; accent-color: var(--green); }
+    .bar-stack { margin-top: 22px; }
+    .bar-label { display: flex; justify-content: space-between; color: var(--muted); font-size: .82rem; margin-bottom: 7px; }
+    .bar-track { height: 18px; background: var(--surface-2); border: 1px solid var(--line); }
+    .bar-fill { height: 100%; width: 40%; background: var(--amber); transition: width .25s ease, background .25s ease; }
+    .teaching-note { margin-top: 12px; font-size: .78rem; color: var(--muted); }
+    .critical { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .path-card { background: var(--surface); border: 1px solid var(--line); padding: 24px; }
+    .path { display: grid; gap: 10px; margin-top: 18px; }
+    .path-node { position: relative; padding: 13px 14px 13px 42px; border: 1px solid var(--line); background: var(--surface-2); font-size: .86rem; }
+    .path-node::before { content: attr(data-n); position: absolute; left: 12px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--line); font: 600 .67rem IBM Plex Mono; }
+    .path-node.blocking { border-color: color-mix(in srgb, var(--amber) 55%, var(--line)); background: var(--amber-soft); }
+    .path-node.parallel { border-color: color-mix(in srgb, var(--green) 55%, var(--line)); background: var(--green-soft); }
+    .fork { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .fork div { padding: 12px 8px; text-align: center; border: 1px dashed var(--green); color: var(--muted); font-size: .72rem; }
+    .failure-lab { background: var(--code); color: var(--code-ink); border-radius: 18px; overflow: hidden; }
+    .lab-controls { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 18px 20px; border-bottom: 1px solid #314039; }
+    .lab-controls button { border: 1px solid #52665c; background: #1b2922; color: #e1eee7; border-radius: 8px; padding: 9px 13px; cursor: pointer; }
+    .lab-controls button:hover, .lab-controls button:focus-visible { border-color: #72d4a5; outline: none; }
+    .lab-grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .lab-side { padding: 24px; min-height: 300px; }
+    .lab-side + .lab-side { border-left: 1px solid #314039; }
+    .lab-side h3 { color: #fff; }
+    .lab-nodes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 22px 0; }
+    .lab-node { border: 1px solid #52665c; padding: 14px 8px; text-align: center; font: 500 .75rem IBM Plex Mono; transition: opacity .2s, border-color .2s; }
+    .lab-node.dead { opacity: .26; border-color: #bd5555; text-decoration: line-through; }
+    .lab-status { color: #9db0a6; font-size: .85rem; }
+    .lab-status b { color: #72d4a5; }
+    .lab-status.danger b { color: #f08c8c; }
+    .takeaways { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .takeaway { border: 1px solid var(--line); background: var(--surface); padding: 20px; display: grid; grid-template-columns: 38px 1fr; gap: 13px; }
+    .takeaway .num { font: 600 .8rem IBM Plex Mono; color: var(--green); padding-top: 4px; }
+    .takeaway p { color: var(--muted); margin: 5px 0 0; font-size: .9rem; }
+    .quiz { margin-top: 22px; background: var(--surface); border: 1px solid var(--line); padding: 24px; }
+    .quiz-options { display: grid; gap: 9px; margin-top: 15px; }
+    .quiz-option { text-align: left; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); padding: 13px; cursor: pointer; border-radius: 8px; }
+    .quiz-option.correct { border-color: var(--green); background: var(--green-soft); }
+    .quiz-option.wrong { border-color: var(--red); background: var(--red-soft); }
+    .quiz-feedback { min-height: 26px; margin-top: 12px; color: var(--muted); font-size: .9rem; }
+    footer { padding: 38px 0 56px; color: var(--muted); font-size: .88rem; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 22px; align-items: center; }
+    .source-link { display: inline-flex; gap: 8px; align-items: center; text-decoration: none; border-bottom: 1px solid var(--green); padding-bottom: 2px; }
+    @media (max-width: 820px) {
+      .wrap { width: min(100% - 28px, 1160px); }
+      .hero { padding: 46px 0 38px; }
+      .rail-inner { flex-wrap: wrap; justify-content: center; }
+      .rail a { flex: 0 0 auto; padding: 6px 8px; font-size: .76rem; }
+      .section-head { grid-template-columns: 1fr; gap: 18px; }
+      section { padding: 56px 0; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .loop { grid-template-columns: 1fr 1fr; }
+      .loop-step:nth-child(2)::after { display: none; }
+      .servers { grid-template-columns: repeat(2, 1fr); }
+      .server:last-child { grid-column: 1 / -1; }
+      .future-grid { grid-template-columns: 1fr; }
+      .principles { grid-template-columns: 1fr; }
+      .tradeoff { grid-template-columns: 1fr; }
+      .trade-arrow { height: 48px; transform: rotate(90deg); }
+      .critical, .lab-grid { grid-template-columns: 1fr; }
+      .lab-side + .lab-side { border-left: 0; border-top: 1px solid #314039; }
+      .takeaways { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 520px) {
+      h1 { font-size: 2.65rem; }
+      .metrics, .loop { grid-template-columns: 1fr; }
+      .metric { min-height: 135px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .metric:last-child { border-bottom: 0; }
+      .loop-step:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -7px; }
+      .servers { grid-template-columns: 1fr; }
+      .server:last-child { grid-column: auto; }
+      .arch-panel { padding: 18px; }
+      .workers { grid-template-columns: 1fr; }
+      .slider-row { grid-template-columns: 1fr 48px; }
+      .slider-row label { grid-column: 1 / -1; }
+      .fork { grid-template-columns: 1fr; }
+      .lab-controls { align-items: flex-start; flex-direction: column; }
+      .lab-nodes { grid-template-columns: 1fr; }
+      footer .wrap { display: block; }
+      footer .source-link { margin-top: 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <div class="source-row"><span class="dot"></span><span>Visual companion to GitHub Engineering</span></div>
+      <h1>When every agent becomes a Git power user</h1>
+      <p class="lede">Agentic development turns a repository from a mostly human-paced archive into a hot, concurrent system. GitHub’s response is a classic distributed-systems move: coordinate less, and separate durable storage from elastic compute.</p>
+      <div class="thesis">The central tension: the current design uses the same full replicas for <em>durability</em> and <em>read scale</em>. More read capacity therefore adds work to every write. The new direction splits those jobs.</div>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Guide sections">
+    <div class="wrap rail-inner">
+      <a href="#pressure">1. Pressure</a>
+      <a href="#architecture">2. Architecture</a>
+      <a href="#tradeoff">3. Bottleneck</a>
+      <a href="#coordination">4. Push path</a>
+      <a href="#failure">5. Failure</a>
+      <a href="#takeaways">6. Interview takeaways</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="pressure">
+      <div class="wrap">
+        <div class="section-head">
+          <div><div class="step">01 / THE PRESSURE</div><h2>Human-scale latency becomes agent-scale throughput.</h2></div>
+          <p>A person may push a few times per hour. An agent can checkpoint after nearly every action, while CI and scanning fan each push out into many reads. Small per-operation costs now sit inside tight loops.</p>
+        </div>
+        <div class="metrics" aria-label="Scale figures reported by GitHub">
+          <div class="metric"><strong>473.3B</strong><span><b>Git events / month</b><br />Aug 2026, up from 218.2B in Sep 2025</span></div>
+          <div class="metric"><strong>7.38B</strong><span><b>commits</b><br />in September, over 5× a year earlier</span></div>
+          <div class="metric"><strong>3.35B</strong><span><b>pushes / month</b><br />up 4.9× year over year</span></div>
+          <div class="metric"><strong>3.26B</strong><span><b>Actions runs</b><br />in September, over 4× a year earlier</span></div>
+        </div>
+        <div class="loop" aria-label="Agent development feedback loop">
+          <div class="loop-step"><i>1</i><b>Agent edits</b><small>One focused change</small></div>
+          <div class="loop-step"><i>2</i><b>Checkpoint push</b><small>Durable, shared state</small></div>
+          <div class="loop-step"><i>3</i><b>CI fans out</b><small>Clones, fetches, scans</small></div>
+          <div class="loop-step"><i>4</i><b>Next action</b><small>Depends on visible result</small></div>
+        </div>
+        <p class="callout"><b>Why this matters:</b> faster clones address the fan-out, but the loop still stalls if pushes serialize on too much coordinated work.</p>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="wrap">
+        <div class="section-head">
+          <div><div class="step">02 / THE ARCHITECTURE SHIFT</div><h2>From full-copy fileservers to specialized layers.</h2></div>
+          <p>Switch views to see the coupling in today’s Spokes architecture, then the conceptual shape GitHub describes for its next architecture.</p>
+        </div>
+        <div class="segmented" role="tablist" aria-label="Architecture view">
+          <button class="active" id="tab-current" role="tab" aria-selected="true" aria-controls="panel-current" data-panel="current">Current: coupled</button>
+          <button id="tab-next" role="tab" aria-selected="false" aria-controls="panel-next" data-panel="next">New: decoupled</button>
+        </div>
+        <div class="architecture">
+          <div class="arch-top"><strong id="arch-title">Spokes: every copy serves and protects</strong><span id="arch-subtitle">One repository, five full local-disk copies by default</span></div>
+          <div class="arch-panel active" id="panel-current" role="tabpanel" aria-labelledby="tab-current">
+            <div class="request-cloud"><span class="chip">push</span><span class="chip">fetch</span><span class="chip">clone</span><span class="chip">CI read</span><span class="chip">API read</span></div>
+            <div class="arrow-down"></div>
+            <div class="servers">
+              <div class="server"><b>Fileserver A</b><small>serves reads<br />joins writes</small><div class="disk">full durable repo</div></div>
+              <div class="server"><b>Fileserver B</b><small>serves reads<br />joins writes</small><div class="disk">full durable repo</div></div>
+              <div class="server"><b>Fileserver C</b><small>serves reads<br />joins writes</small><div class="disk">full durable repo</div></div>
+              <div class="server"><b>Fileserver D</b><small>serves reads<br />joins writes</small><div class="disk">full durable repo</div></div>
+              <div class="server"><b>Fileserver E</b><small>serves reads<br />joins writes</small><div class="disk">full durable repo</div></div>
+            </div>
+            <div class="quorum"><b>Three-phase commit + quorum</b> keeps repository state consistent, but every added durable replica becomes part of the write story.</div>
+          </div>
+          <div class="arch-panel" id="panel-next" role="tabpanel" aria-labelledby="tab-next">
+            <div class="request-cloud"><span class="chip">agent fleet</span><span class="chip">CI burst</span><span class="chip">human developers</span></div>
+            <div class="arrow-down"></div>
+            <div class="future-grid">
+              <div class="layer">
+                <strong>Elastic serving compute</strong>
+                <p>Lightweight workers answer Git requests and cache hot data. Add or remove workers with demand.</p>
+                <div class="workers"><div class="worker">cache worker</div><div class="worker">cache worker</div><div class="worker">cache worker</div><div class="worker">+ burst worker</div></div>
+              </div>
+              <div class="layer storage">
+                <strong>Authoritative durable storage</strong>
+                <p>Repository data lives in Azure Blob Storage, using the storage layer’s own durability and replication. Compute is no longer the source of truth.</p>
+                <div class="workers"><div class="worker">objects</div><div class="worker">repository state</div></div>
+              </div>
+              <div class="layer maintenance">
+                <strong>Background maintenance</strong>
+                <p>Separate workers compact data and clean unreachable objects without competing with live requests on serving hosts.</p>
+                <div class="workers"><div class="worker">compaction</div><div class="worker">garbage collection</div></div>
+              </div>
+            </div>
+            <div class="principles">
+              <div class="principle"><b>Reads scale alone</b><p>More cache workers do not create more durable write participants.</p></div>
+              <div class="principle"><b>Failures get cheaper</b><p>Losing compute looks more like a cache miss than a durability event.</p></div>
+              <div class="principle"><b>Maintenance leaves the hot path</b><p>Heavy optimization work no longer shares the machines serving requests.</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tradeoff">
+      <div class="wrap">
+        <div class="section-head">
+          <div><div class="step">03 / THE BOTTLENECK</div><h2>Why “just add replicas” eventually backfires.</h2></div>
+          <p>In the coupled design, adding fileservers spreads reads but also expands the set involved in durable writes. Explore the teaching model below.</p>
+        </div>
+        <div class="tradeoff">
+          <div class="trade-side">
+            <h3>Read side</h3>
+            <p>More replicas give clients more places to fetch the same data.</p>
+            <div class="sliders">
+              <div class="slider-row"><label for="replicas">Full replicas</label><input id="replicas" type="range" min="3" max="9" value="5" /><output id="replica-count">5</output></div>
+              <div class="slider-row"><label for="slowest">Slowest-replica drag</label><input id="slowest" type="range" min="0" max="100" value="28" /><output id="slowest-count">28%</output></div>
+            </div>
+            <div class="bar-stack"><div class="bar-label"><span>Relative read headroom</span><b id="read-label">56%</b></div><div class="bar-track"><div class="bar-fill" id="read-bar"></div></div></div>
+          </div>
+          <div class="trade-arrow">⇄</div>
+          <div class="trade-side">
+            <h3>Write side</h3>
+            <p>The push cannot be acknowledged until coordinated durability work completes.</p>
+            <div class="bar-stack"><div class="bar-label"><span>Illustrative write burden</span><b id="write-label">48%</b></div><div class="bar-track"><div class="bar-fill" id="write-bar"></div></div></div>
+            <p class="teaching-note">Illustrative relationship, not GitHub production telemetry. It visualizes the article’s coupling: replica count helps reads while slow participants and coordination burden writes.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="coordination">
+      <div class="wrap">
+        <div class="section-head">
+          <div><div class="step">04 / MINIMIZE COORDINATION</div><h2>Make the agreement step tiny.</h2></div>
+          <p>Correctness still needs coordination. The goal is not “no coordination”; it is to coordinate only the state that must have one agreed ordering: the reference update.</p>
+        </div>
+        <div class="critical">
+          <article class="path-card">
+            <h3>Too much on the critical path</h3>
+            <p class="callout">Independent work extends the time before a push can complete.</p>
+            <div class="path">
+              <div class="path-node blocking" data-n="1">Store Git objects across durable copies</div>
+              <div class="path-node blocking" data-n="2">Validate object connectivity</div>
+              <div class="path-node blocking" data-n="3">Run security checks</div>
+              <div class="path-node blocking" data-n="4">Coordinate reference update</div>
+              <div class="path-node" data-n="5">Acknowledge push</div>
+            </div>
+          </article>
+          <article class="path-card">
+            <h3>Shrunk coordination boundary</h3>
+            <p class="callout">Parallelize the expensive independent work; serialize the ref change that requires consensus.</p>
+            <div class="path">
+              <div class="fork"><div>store objects</div><div>connectivity</div><div>secret scan</div></div>
+              <div class="path-node parallel" data-n="1">Coordinate the reference update</div>
+              <div class="path-node" data-n="2">Publish one consistent visible state</div>
+              <div class="path-node" data-n="3">Acknowledge push</div>
+            </div>
+          </article>
+        </div>
+        <p class="callout"><b>Git-specific intuition:</b> many agents can create distinct immutable objects without fighting over one another. Contention appears when they all try to move the same named ref—especially the default branch.</p>
+      </div>
+    </section>
+
+    <section id="failure">
+      <div class="wrap">
+        <div class="section-head">
+          <div><div class="step">05 / FAILURE SEMANTICS</div><h2>Turn a machine loss into a cache event.</h2></div>
+          <p>Compare what a failed host means when compute and durability are fused versus separated. Use the control to remove one serving node.</p>
+        </div>
+        <div class="failure-lab">
+          <div class="lab-controls"><span class="mono">failure_lab / one host</span><button id="failure-toggle" type="button">Fail one worker</button></div>
+          <div class="lab-grid">
+            <div class="lab-side">
+              <h3>Coupled fileservers</h3>
+              <div class="lab-nodes" id="old-nodes"><div class="lab-node">serve + store</div><div class="lab-node">serve + store</div><div class="lab-node">serve + store</div></div>
+              <div class="lab-status" id="old-status"><b>Healthy:</b> read capacity and durable copies are intact.</div>
+            </div>
+            <div class="lab-side">
+              <h3>Decoupled compute</h3>
+              <div class="lab-nodes" id="new-nodes"><div class="lab-node">cache worker</div><div class="lab-node">cache worker</div><div class="lab-node">cache worker</div></div>
+              <div class="lab-status" id="new-status"><b>Healthy:</b> workers serve from caches backed by durable storage.</div>
+            </div>
+          </div>
+        </div>
+        <p class="callout">In the new model, a replacement compute worker can begin serving and refill its cache from durable storage as requests arrive. Storage durability does not depend on rebuilding a full copy on that host.</p>
+      </div>
+    </section>
+
+    <section id="takeaways">
+      <div class="wrap">
+        <div class="section-head">
+          <div><div class="step">06 / SYSTEM DESIGN TAKEAWAYS</div><h2>The reusable ideas behind the Git story.</h2></div>
+          <p>These patterns travel well beyond Git—to databases, model serving, build systems, and any workload where hot compute is accidentally carrying durable responsibility.</p>
+        </div>
+        <div class="takeaways">
+          <article class="takeaway"><div class="num">01</div><div><h3>Separate scaling axes</h3><p>If reads and writes scale for different reasons, avoid making them buy the same resource.</p></div></article>
+          <article class="takeaway"><div class="num">02</div><div><h3>Find the true serialization point</h3><p>For a Git push, immutable object work can spread out; the ref update is the small contested decision.</p></div></article>
+          <article class="takeaway"><div class="num">03</div><div><h3>Move housekeeping away from traffic</h3><p>Compaction and garbage collection should not steal CPU or I/O from live requests.</p></div></article>
+          <article class="takeaway"><div class="num">04</div><div><h3>Design failure domains deliberately</h3><p>A serving worker’s failure should reduce temporary capacity, not threaten the authoritative copy.</p></div></article>
+          <article class="takeaway"><div class="num">05</div><div><h3>Preserve semantics while changing mechanics</h3><p>Branch protection, review, audit, visibility, and human control remain constraints—not optional extras.</p></div></article>
+          <article class="takeaway"><div class="num">06</div><div><h3>Optimize for the tight loop</h3><p>Agent workflows amplify push latency, merge contention, and read fan-out that humans might barely notice.</p></div></article>
+        </div>
+        <div class="quiz" aria-labelledby="quiz-question">
+          <h3 id="quiz-question">Quick check: Why doesn’t adding more full replicas solve the busiest repositories?</h3>
+          <div class="quiz-options">
+            <button class="quiz-option" data-correct="false">Git cannot read from more than five replicas.</button>
+            <button class="quiz-option" data-correct="true">Each durable replica helps reads but also participates in writes, coupling read scale to write cost.</button>
+            <button class="quiz-option" data-correct="false">Agent commits are too large to store on local disks.</button>
+          </div>
+          <div class="quiz-feedback" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Conceptual diagrams summarize the public architecture direction; implementation details may evolve.</span>
+      <a class="source-link" href="https://github.blog/engineering/architecture-optimization/building-git-infrastructure-for-agent-scale-development/" target="_blank" rel="noopener noreferrer">Read the original GitHub Engineering article ↗</a>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var tabButtons = document.querySelectorAll('[data-panel]');
+      var titles = {
+        current: ['Spokes: every copy serves and protects', 'One repository, five full local-disk copies by default'],
+        next: ['Decoupled: each layer does one job', 'Durable storage below; elastic compute and maintenance above']
+      };
+      tabButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          var panel = button.getAttribute('data-panel');
+          tabButtons.forEach(function (b) { b.classList.toggle('active', b === button); b.setAttribute('aria-selected', b === button ? 'true' : 'false'); });
+          document.querySelectorAll('.arch-panel').forEach(function (p) { p.classList.toggle('active', p.id === 'panel-' + panel); });
+          document.getElementById('arch-title').textContent = titles[panel][0];
+          document.getElementById('arch-subtitle').textContent = titles[panel][1];
+        });
+      });
+
+      var replicas = document.getElementById('replicas');
+      var slowest = document.getElementById('slowest');
+      function updateModel() {
+        var r = Number(replicas.value);
+        var s = Number(slowest.value);
+        var read = Math.min(100, Math.round(r / 9 * 100));
+        var write = Math.min(100, Math.round((r / 9 * 62) + (s * .48)));
+        document.getElementById('replica-count').textContent = String(r);
+        document.getElementById('slowest-count').textContent = s + '%';
+        document.getElementById('read-label').textContent = read + '%';
+        document.getElementById('write-label').textContent = write + '%';
+        document.getElementById('read-bar').style.width = read + '%';
+        document.getElementById('read-bar').style.background = 'var(--green)';
+        document.getElementById('write-bar').style.width = write + '%';
+        document.getElementById('write-bar').style.background = write > 68 ? 'var(--red)' : 'var(--amber)';
+      }
+      replicas.addEventListener('input', updateModel);
+      slowest.addEventListener('input', updateModel);
+      updateModel();
+
+      var failed = false;
+      var failureButton = document.getElementById('failure-toggle');
+      failureButton.addEventListener('click', function () {
+        failed = !failed;
+        document.querySelector('#old-nodes .lab-node:last-child').classList.toggle('dead', failed);
+        document.querySelector('#new-nodes .lab-node:last-child').classList.toggle('dead', failed);
+        failureButton.textContent = failed ? 'Restore worker' : 'Fail one worker';
+        var oldStatus = document.getElementById('old-status');
+        var newStatus = document.getElementById('new-status');
+        if (failed) {
+          oldStatus.innerHTML = '<b>Degraded:</b> both read capacity and one durable repository copy disappeared; recovery rebuilds that full copy.';
+          oldStatus.classList.add('danger');
+          newStatus.innerHTML = '<b>Capacity dip:</b> durable data is intact. Start a lightweight replacement and warm its cache on demand.';
+        } else {
+          oldStatus.innerHTML = '<b>Healthy:</b> read capacity and durable copies are intact.';
+          oldStatus.classList.remove('danger');
+          newStatus.innerHTML = '<b>Healthy:</b> workers serve from caches backed by durable storage.';
+        }
+      });
+
+      var quizButtons = document.querySelectorAll('.quiz-option');
+      var feedback = document.querySelector('.quiz-feedback');
+      quizButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          quizButtons.forEach(function (b) { b.classList.remove('correct', 'wrong'); });
+          var correct = button.getAttribute('data-correct') === 'true';
+          button.classList.add(correct ? 'correct' : 'wrong');
+          feedback.textContent = correct ? 'Exactly. Read capacity and write coordination are tied together.' : 'Not quite. Focus on the coupling between durability replicas and the write path.';
+        });
+      });
+    }());
+  </script>
+</body>
+</html>
