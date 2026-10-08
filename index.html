@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VibeBlog — Visual Learning Guides</title>
+<style>
+  :root { --bg: #0f1420; --card: #1a2233; --text: #e8edf5; --muted: #93a0b8;
+          --accent: #6ea8fe; --border: #2a3550; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text);
+         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         line-height: 1.6; padding: 2rem 1rem 4rem; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 3rem; }
+  header h1 { font-size: 2.4rem; letter-spacing: -0.5px; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); margin-top: 0.6rem; font-size: 1.05rem; }
+  section { margin-bottom: 2.6rem; }
+  section > h2 { font-size: 1.3rem; margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.6rem; }
+  section > h2 .count { font-size: 0.8rem; color: var(--muted); font-weight: normal;
+                        background: var(--card); border: 1px solid var(--border);
+                        border-radius: 999px; padding: 0.1rem 0.7rem; }
+  section > p.desc { color: var(--muted); margin-bottom: 1.1rem; font-size: 0.95rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+          padding: 1.2rem 1.3rem; text-decoration: none; color: var(--text);
+          transition: transform 0.15s ease, border-color 0.15s ease; display: block; }
+  .card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .card h3 { font-size: 1.02rem; margin-bottom: 0.4rem; color: var(--accent); }
+  .card p { font-size: 0.88rem; color: var(--muted); }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 3rem; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vibe<span>Blog</span></h1>
+    <p>Visual learning guides — CS fundamentals, system design, and advanced engineering reads, explained with diagrams.</p>
+  </header>
+
+  <section>
+    <h2>System Design <span class="count">8 guides</span></h2>
+    <p class="desc">Distributed systems concepts, coordination, and infrastructure at scale.</p>
+    <div class="grid">
+      <a class="card" href="system-design/zookeeper-visual-walkthrough.html">
+        <h3>ZooKeeper: Ensemble &amp; Leader Failover</h3>
+        <p>How ensembles, quorums, ZAB, and leader election work — with a live failure simulation.</p>
+      </a>
+      <a class="card" href="system-design/dynamodb-leases-visual-walkthrough.html">
+        <h3>DynamoDB Leases for Streaming Workers</h3>
+        <p>Lease-based ownership, heartbeats, and orphan reconciliation for resilient real-time workers.</p>
+      </a>
+      <a class="card" href="system-design/git-infrastructure-for-agent-scale-visual-guide.html">
+        <h3>Git Infrastructure for Agent-Scale Development</h3>
+        <p>How GitHub is rebuilding Git for millions of agents: decoupling storage from compute.</p>
+      </a>
+      <a class="card" href="system-design/kubernetes-visual-walkthrough.html">
+        <h3>Kubernetes Visual Walkthrough</h3>
+        <p>Core Kubernetes concepts explained visually.</p>
+      </a>
+      <a class="card" href="system-design/kruthika-talks-visual-guide.html">
+        <h3>KubeCon Talks — Visual Study Guide</h3>
+        <p>Key ideas from Kruthika's KubeCon talks, distilled with diagrams.</p>
+      </a>
+      <a class="card" href="system-design/opensearch-visual-walkthrough.html">
+        <h3>OpenSearch Visual Walkthrough</h3>
+        <p>How OpenSearch works, explained visually.</p>
+      </a>
+      <a class="card" href="system-design/tsdb-system-design-walkthrough.html">
+        <h3>TSDB System Design Walkthrough</h3>
+        <p>Designing a time-series database, step by step.</p>
+      </a>
+      <a class="card" href="system-design/ebpf-system-logging-walkthrough.html">
+        <h3>eBPF System Logging Walkthrough</h3>
+        <p>Using eBPF for system-level logging and observability.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Advanced Learning Blog <span class="count">4 guides</span></h2>
+    <p class="desc">Deep dives from engineering blogs and advanced technical reads.</p>
+    <div class="grid">
+      <a class="card" href="adv-learning-blog/bei-visual-walkthrough.html">
+        <h3>BEI: High-Throughput Embedding Inference</h3>
+        <p>Baseten's embedding inference engine — token-based batching, TensorRT-LLM, and FP8.</p>
+      </a>
+      <a class="card" href="adv-learning-blog/anomaly-detection-otel.html">
+        <h3>Anomaly Detection with OpenTelemetry</h3>
+        <p>A visual journey through anomaly detection on observability data.</p>
+      </a>
+      <a class="card" href="adv-learning-blog/dive_claude_code.html">
+        <h3>Dive into Claude Code</h3>
+        <p>A deep visual dive into how Claude Code works.</p>
+      </a>
+      <a class="card" href="adv-learning-blog/ml-monitoring-visual-walkthrough.html">
+        <h3>ML Monitoring Visual Walkthrough</h3>
+        <p>Monitoring machine learning systems in production, explained visually.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>CS Fundamentals <span class="count">2 guides</span></h2>
+    <p class="desc">Core computer science concepts for interview prep and everyday engineering.</p>
+    <div class="grid">
+      <a class="card" href="cs-fundamentals/docker-visual-walkthrough.html">
+        <h3>Docker Visual Walkthrough</h3>
+        <p>Containers, images, and Docker internals — visually.</p>
+      </a>
+      <a class="card" href="cs-fundamentals/dft_fft_journey.html">
+        <h3>DFT/FFT Journey</h3>
+        <p>From the discrete Fourier transform to the fast algorithm, step by step.</p>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    Built as a personal learning record · <a href="https://github.com/VimalKumarS/VibeBlog">VimalKumarS/VibeBlog</a>
+  </footer>
+</div>
+</body>
+</html>
