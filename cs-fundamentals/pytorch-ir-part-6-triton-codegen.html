@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>PyTorch IR Part 6 — Reading Triton Codegen</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap');
+    :root{
+      color-scheme:light dark;
+      --bg:#f6f8f9;--paper:#ffffff;--ink:#162126;--muted:#53656d;--line:#ced9dd;
+      --code:#0c171c;--code-ink:#d8e6e9;--cyan:#007f91;--cyan-soft:#d9f4f5;--orange:#d25824;--orange-soft:#ffeadf;
+      --lime:#5e7f15;--lime-soft:#edf5d5;--red:#b4382f;--red-soft:#ffe3df;--shadow:0 18px 55px rgba(26,46,54,.09);
+      --nav:rgba(246,248,249,.93);
+    }
+    @media(prefers-color-scheme:dark){:root{
+      --bg:#0d1417;--paper:#131e22;--ink:#e8f0f2;--muted:#a4b5bb;--line:#2a3a40;
+      --code:#071014;--code-ink:#d9e8ea;--cyan:#49c7d1;--cyan-soft:#123a40;--orange:#ff8a51;--orange-soft:#432519;
+      --lime:#b0cf62;--lime-soft:#263713;--red:#ff8278;--red-soft:#42211f;--shadow:0 18px 60px rgba(0,0,0,.25);
+      --nav:rgba(13,20,23,.93);
+    }}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;line-height:1.65}
+    a{color:var(--cyan);text-underline-offset:3px}button,input{font:inherit}code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+    .progress{position:fixed;z-index:50;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--orange),var(--cyan));transition:width .1s linear}
+    .topbar{position:sticky;top:0;z-index:40;background:var(--nav);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+    .top-inner{max-width:1450px;margin:auto;padding:10px 24px;display:flex;align-items:center;gap:16px}.series{font:600 12px/1.2 "IBM Plex Mono";color:var(--orange);letter-spacing:.05em}.top-title{font-size:13px;color:var(--muted)}.top-inner .spacer{flex:1}.readtime{font:500 11px "IBM Plex Mono";color:var(--muted)}
+    .layout{max-width:1450px;margin:auto;display:grid;grid-template-columns:245px minmax(0,1fr);gap:48px;padding:0 24px}
+    aside.rail{position:sticky;top:58px;height:calc(100vh - 58px);padding:34px 0;overflow:auto}.rail strong{display:block;font:600 11px "IBM Plex Mono";text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 12px}.rail a{display:block;padding:7px 10px;margin-left:-10px;color:var(--muted);text-decoration:none;font-size:13px;border-left:2px solid transparent}.rail a:hover,.rail a.active{color:var(--ink);border-left-color:var(--orange);background:var(--orange-soft)}
+    main{min-width:0;padding-bottom:100px}.hero{min-height:74vh;padding:88px 0 62px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(360px,.9fr);gap:48px;align-items:center;border-bottom:1px solid var(--line)}
+    .part{font:600 12px "IBM Plex Mono";color:var(--orange);margin-bottom:18px}.hero h1{font-size:clamp(43px,6vw,82px);line-height:.98;letter-spacing:-.055em;margin:0 0 24px;max-width:780px}.hero h1 em{font-style:normal;color:var(--cyan)}.hero .lead{font-size:clamp(17px,2vw,22px);max-width:700px;color:var(--muted);line-height:1.55}.thesis{margin-top:30px;padding:18px 20px;border-left:4px solid var(--orange);background:var(--paper);box-shadow:var(--shadow);font-weight:600;max-width:680px}
+    .hero-visual{background:var(--code);color:var(--code-ink);border-radius:8px;box-shadow:var(--shadow);overflow:hidden}.windowbar{padding:12px 14px;border-bottom:1px solid #26383f;display:flex;align-items:center;gap:7px}.dot{width:8px;height:8px;border-radius:50%;background:#52656c}.dot:nth-child(1){background:#e86e51}.dot:nth-child(2){background:#d8b64f}.dot:nth-child(3){background:#4faa79}.windowbar span:last-child{margin-left:auto;font:11px "IBM Plex Mono";color:#789099}.mini-code{padding:22px;font:12px/1.8 "IBM Plex Mono";white-space:pre;overflow:hidden}.mini-code .c1{color:#65d2dc}.mini-code .c2{color:#ff9a66}.mini-code .c3{color:#a8cc67}.flow-strip{padding:16px 18px;border-top:1px solid #26383f;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:600 10px "IBM Plex Mono";color:#aabcc1}.flow-strip b{color:#fff;background:#22343b;padding:5px 8px;border-radius:3px}.flow-strip i{color:#60757d;font-style:normal}
+    section{padding:76px 0;border-bottom:1px solid var(--line)}.section-head{display:grid;grid-template-columns:90px minmax(0,700px);gap:22px;margin-bottom:36px}.sec-no{font:600 13px "IBM Plex Mono";color:var(--orange);padding-top:9px}.section-head h2{font-size:clamp(30px,4vw,50px);letter-spacing:-.035em;line-height:1.08;margin:0}.section-head p{grid-column:2;color:var(--muted);font-size:17px;margin:2px 0 0}.callout{padding:18px 20px;background:var(--cyan-soft);border:1px solid color-mix(in srgb,var(--cyan) 28%,transparent);margin:24px 0;border-radius:7px}.callout strong{color:var(--cyan)}
+    .pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.stage{background:var(--paper);border:1px solid var(--line);padding:18px 16px;min-height:156px}.stage .num{font:600 11px "IBM Plex Mono";color:var(--orange)}.stage h3{font-size:15px;margin:15px 0 7px}.stage p{font-size:12px;color:var(--muted);margin:0}.stage:last-child{background:var(--code);color:#fff;border-color:var(--code)}.stage:last-child p{color:#9eb4bb}.stage-arrow{text-align:center;color:var(--muted);font:12px "IBM Plex Mono";margin:14px 0 0}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:22px}.panel{background:var(--paper);border:1px solid var(--line);padding:24px;border-radius:7px}.panel h3{font-size:18px;margin:0 0 12px}.panel p{color:var(--muted);font-size:14px}.codebox{background:var(--code);color:var(--code-ink);padding:18px;border-radius:6px;overflow:auto;font:12px/1.75 "IBM Plex Mono"}.codebox .kw{color:#ff9a66}.codebox .fn{color:#67d2dc}.codebox .cm{color:#728a92}.codebox .num{color:#b8da76}.mapping{display:grid;grid-template-columns:1fr 44px 1fr;gap:10px;align-items:stretch}.mapping .arrow{display:grid;place-items:center;font-size:24px;color:var(--orange)}.map-row{border-top:1px dashed var(--line);padding:12px 0;display:grid;grid-template-columns:1fr 1fr;gap:24px}.map-row:first-child{border-top:0}.map-row code{font-size:12px}.map-row span{font-size:13px;color:var(--muted)}
+    .kernel-shell{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,.75fr);background:var(--code);border-radius:8px;overflow:hidden;box-shadow:var(--shadow)}.kernel-code{padding:15px 0;overflow:auto}.kline{display:grid;grid-template-columns:38px minmax(580px,1fr);border:0;background:transparent;color:var(--code-ink);width:100%;text-align:left;padding:4px 18px 4px 0;cursor:pointer;font:12px/1.65 "IBM Plex Mono"}.kline .ln{text-align:right;padding-right:12px;color:#536a72;user-select:none}.kline:hover,.kline.active{background:#15272e}.kline.active{box-shadow:inset 3px 0 #ff8450}.kline .tok-a{color:#64d0d7}.kline .tok-b{color:#ff9a66}.kline .tok-c{color:#b6d878}.kernel-note{background:#14252b;color:#dbe7e9;padding:26px;border-left:1px solid #2c434b}.kernel-note .badge{font:600 10px "IBM Plex Mono";color:#ff9a66;text-transform:uppercase;letter-spacing:.1em}.kernel-note h3{font-size:21px;line-height:1.25;margin:14px 0 10px}.kernel-note p{font-size:13px;color:#aac0c5}.kernel-note .shape{padding:12px;margin-top:18px;background:#0b171b;font:12px/1.6 "IBM Plex Mono";color:#83dce2}
+    .lab{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:24px}.lab-head{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:22px}.lab h3{margin:0;font-size:22px}.lab-controls{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:350px}.control label{display:flex;justify-content:space-between;font:11px "IBM Plex Mono";color:var(--muted);margin-bottom:7px}.control input{width:100%;accent-color:var(--orange)}.lane-canvas{display:grid;gap:7px}.program-row{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;align-items:center}.program-label{font:11px "IBM Plex Mono";color:var(--muted)}.lanes{display:grid;gap:4px}.lane{height:34px;border-radius:3px;display:grid;place-items:center;font:10px "IBM Plex Mono";background:var(--cyan-soft);color:var(--cyan);border:1px solid color-mix(in srgb,var(--cyan) 28%,transparent)}.lane.masked{background:repeating-linear-gradient(135deg,var(--red-soft),var(--red-soft) 5px,transparent 5px,transparent 10px);color:var(--red);border-color:color-mix(in srgb,var(--red) 30%,transparent)}.lab-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;font-size:12px;color:var(--muted)}.key{display:inline-block;width:12px;height:12px;vertical-align:-2px;margin-right:6px;background:var(--cyan-soft);border:1px solid var(--cyan)}.key.off{background:var(--red-soft);border-color:var(--red)}.formula{font:500 13px "IBM Plex Mono";background:var(--bg);padding:12px 14px;margin-top:18px}
+    .grid-visual{display:grid;grid-template-columns:110px 1fr;gap:18px;align-items:center}.tensor{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}.cell{aspect-ratio:1;border:1px solid var(--line);background:var(--paper);display:grid;place-items:center;font:10px "IBM Plex Mono"}.cell.sel{background:var(--orange-soft);color:var(--orange);border-color:var(--orange)}.memory{margin-top:20px;display:grid;grid-template-columns:repeat(12,1fr);gap:4px}.mem{height:38px;background:var(--cyan-soft);border:1px solid color-mix(in srgb,var(--cyan) 30%,transparent);display:grid;place-items:center;font:10px "IBM Plex Mono";color:var(--cyan)}
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:20px}.traffic{display:flex;gap:8px;align-items:end;height:140px;padding-top:20px}.bar{flex:1;min-width:24px;background:var(--line);position:relative}.bar.good{background:var(--cyan)}.bar.bad{background:var(--orange)}.bar span{position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);font:10px "IBM Plex Mono";white-space:nowrap}.metric{font-size:30px;font-weight:700;letter-spacing:-.04em}.metric small{font-size:13px;color:var(--muted);font-weight:500}
+    .reduction-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.rstep{padding:20px;border-top:4px solid var(--line);background:var(--paper)}.rstep:nth-child(1){border-color:var(--cyan)}.rstep:nth-child(2){border-color:var(--orange)}.rstep:nth-child(3){border-color:var(--lime)}.rstep:nth-child(4){border-color:var(--red)}.rstep b{font:600 12px "IBM Plex Mono"}.rstep p{font-size:13px;color:var(--muted);margin-bottom:0}
+    .debug-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.debug-card{padding:22px;background:var(--paper);border-top:3px solid var(--line)}.debug-card h3{font-size:16px;margin:0 0 10px}.debug-card code{font-size:11px;color:var(--cyan)}.debug-card p,.debug-card li{font-size:13px;color:var(--muted)}
+    details{border-top:1px solid var(--line);padding:18px 0}summary{cursor:pointer;font-weight:700}details p{color:var(--muted)}
+    .checklist{counter-reset:item;display:grid;gap:10px}.check{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;padding:14px;background:var(--paper);border:1px solid var(--line)}.check:before{counter-increment:item;content:counter(item);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--orange-soft);color:var(--orange);font:600 11px "IBM Plex Mono"}.check b{display:block;font-size:14px}.check span{font-size:12px;color:var(--muted)}
+    .sources{font-size:13px;color:var(--muted)}.sources li{margin:8px 0}.footer-line{font:12px "IBM Plex Mono";color:var(--muted);margin-top:32px}
+    @media(max-width:980px){.layout{display:block}.rail{display:none!important}.hero{grid-template-columns:1fr;min-height:auto;padding-top:60px}.hero-visual{max-width:680px}.pipeline{grid-template-columns:1fr 1fr}.kernel-shell{grid-template-columns:1fr}.kernel-note{border-left:0;border-top:1px solid #2c434b}.debug-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:650px){.top-inner{padding:10px 15px}.top-title,.readtime{display:none}.layout{padding:0 15px}.hero{padding:48px 0}.hero h1{font-size:46px}.section-head{grid-template-columns:1fr;gap:4px}.section-head p{grid-column:1}.pipeline,.split,.compare,.reduction-flow,.debug-grid,.mapping{grid-template-columns:1fr}.mapping .arrow{transform:rotate(90deg)}.kernel-shell{margin-left:-15px;margin-right:-15px;border-radius:0}.kernel-code{overflow:visible}.kline{grid-template-columns:34px minmax(0,1fr)}.kline>span:last-child{white-space:pre-wrap;overflow-wrap:anywhere}.lab{padding:18px}.lab-head{display:block}.lab-controls{min-width:0;margin-top:18px;grid-template-columns:1fr}.program-row{grid-template-columns:50px 1fr}.lane{font-size:8px;height:29px}.grid-visual{grid-template-columns:1fr}.memory{grid-template-columns:repeat(6,1fr)}section{padding:58px 0}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.progress{transition:none}}
+  </style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><div class="top-inner"><span class="series">PYTORCH IR · PART 06</span><span class="top-title">Triton codegen field guide</span><span class="spacer"></span><span class="readtime">~28 MIN · INTERACTIVE</span></div></header>
+<div class="layout">
+  <aside class="rail" aria-label="Chapter navigation">
+    <strong>Trace the lowering</strong>
+    <a href="#contract">1 · The compiler contract</a><a href="#loop-ir">2 · Loop IR</a><a href="#kernel">3 · Kernel, line by line</a><a href="#grid">4 · Grid & masks</a><a href="#indexing">5 · Index algebra</a><a href="#fusion">6 · Fusion & traffic</a><a href="#reductions">7 · Reductions</a><a href="#launch">8 · Wrapper & launch</a><a href="#debug">9 · Read your own output</a><a href="#practice">10 · Practice ladder</a><a href="#sources">Sources</a>
+  </aside>
+  <main>
+    <section class="hero" id="top">
+      <div>
+        <div class="part">PART 6 / LOWERING TO THE GPU</div>
+        <h1>From a loop to <em>thousands of lanes.</em></h1>
+        <p class="lead">A generated Triton kernel mixes scalar launch metadata with vectors of block elements. Learn to read the launch grid, recover the original loop, check every pointer, and see exactly where fusion erased memory traffic.</p>
+        <div class="thesis">The key shift: a Triton “program” is not one scalar thread. It is one independently launched program instance operating on a block of values.</div>
+      </div>
+      <div class="hero-visual" aria-label="Animated-looking code flow illustration">
+        <div class="windowbar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>output_code.py</span></div>
+        <div class="mini-code"><span class="c1">pid</span> = tl.program_id(<span class="c3">0</span>)
+<span class="c1">offs</span> = pid * XBLOCK + tl.arange(<span class="c3">0</span>, XBLOCK)
+<span class="c1">mask</span> = offs &lt; xnumel
+<span class="c2">x</span> = tl.load(in_ptr0 + offs, mask)
+<span class="c2">y</span> = tl.sin(tl.cos(x))
+tl.store(out_ptr0 + offs, y, mask)</div>
+        <div class="flow-strip"><b>LOOP i</b><i>→</i><b>PROGRAM pid</b><i>→</i><b>BLOCK [i…i+B)</b><i>→</i><b>GPU</b></div>
+      </div>
+    </section>
+
+    <section id="contract">
+      <div class="section-head"><div class="sec-no">01</div><h2>What TorchInductor hands to Triton</h2><p>Dynamo and AOTAutograd have already captured and normalized the graph. Inductor’s scheduler chooses groups of loop nests to fuse; Triton codegen turns each selected GPU group into an SPMD kernel.</p></div>
+      <div class="pipeline">
+        <div class="stage"><span class="num">PYTHON</span><h3>Tensor program</h3><p><code>sin(cos(x))</code> expresses operations, not loops.</p></div>
+        <div class="stage"><span class="num">ATEN / FX</span><h3>Dataflow graph</h3><p>Nodes reveal producer → consumer relationships.</p></div>
+        <div class="stage"><span class="num">INDUCTOR</span><h3>Loop-level IR</h3><p>Loads, index formulas, scalar ops, stores.</p></div>
+        <div class="stage"><span class="num">SCHEDULER</span><h3>Fusion group</h3><p>Compatible loops become one kernel.</p></div>
+        <div class="stage"><span class="num">TRITON</span><h3>Blocked program</h3><p>Program IDs + block tensors + masks.</p></div>
+      </div>
+      <div class="stage-arrow">semantic ops → explicit iteration → launchable kernel</div>
+      <div class="callout"><strong>Read codegen backward.</strong> Start at <code>tl.store</code>, trace the value through temporaries to each <code>tl.load</code>, then decode the offsets. This reconstructs both the math and the memory path.</div>
+    </section>
+
+    <section id="loop-ir">
+      <div class="section-head"><div class="sec-no">02</div><h2>The missing middle: loop IR</h2><p>Inductor’s define-by-run loop IR represents a tensor result as an iteration domain plus a callable body. The body says what one logical element does; codegen supplies many logical indices at once.</p></div>
+      <div class="mapping">
+        <div class="panel"><h3>Scalar mental model</h3><div class="codebox"><span class="kw">for</span> i <span class="kw">in</span> range(N):
+    a = load(x, i)
+    b = cos(a)
+    c = sin(b)
+    store(out, i, c)</div><p>One iteration at a time. Excellent for reasoning about semantics, terrible as the final GPU schedule.</p></div>
+        <div class="arrow">→</div>
+        <div class="panel"><h3>Blocked Triton model</h3><div class="codebox">i = pid * B + arange(B)
+active = i &lt; N
+<span class="cm"># every value below is a vector</span>
+a = load(x + i, active)
+b = cos(a)
+c = sin(b)
+store(out + i, c, active)</div><p>The scalar body is replayed with a block tensor of indices. The Triton compiler decides how those elements map to hardware threads and vector instructions.</p></div>
+      </div>
+      <div class="panel" style="margin-top:22px"><h3>Operation-for-operation mapping</h3>
+        <div class="map-row"><code>ranges = [N]</code><span>One flattened pointwise iteration domain.</span></div>
+        <div class="map-row"><code>ops.load("x", i)</code><span><code>tl.load(in_ptr0 + x0, xmask)</code></span></div>
+        <div class="map-row"><code>ops.cos(v)</code><span><code>tl.cos(tmp0)</code>, usually register-resident.</span></div>
+        <div class="map-row"><code>ops.sin(v)</code><span><code>tl.sin(tmp1)</code>, still register-resident.</span></div>
+        <div class="map-row"><code>ops.store("out", i, v)</code><span><code>tl.store(out_ptr0 + x0, tmp2, xmask)</code></span></div>
+      </div>
+    </section>
+
+    <section id="kernel">
+      <div class="section-head"><div class="sec-no">03</div><h2>A generated kernel, line by line</h2><p>This is the characteristic TorchInductor pointwise kernel emitted for <code>torch.sin(torch.cos(x))</code>, reduced to the kernel body so the execution model is visible. Select any line.</p></div>
+      <div class="kernel-shell">
+        <div class="kernel-code" id="kernelCode" aria-label="Interactive Triton kernel">
+          <button class="kline" data-k="decorator"><span class="ln">01</span><span><span class="tok-a">@triton.jit</span></span></button>
+          <button class="kline" data-k="signature"><span class="ln">02</span><span><span class="tok-b">def</span> triton_poi_fused_cos_sin_0(</span></button>
+          <button class="kline" data-k="signature"><span class="ln">03</span><span>    in_ptr0, out_ptr0, xnumel,</span></button>
+          <button class="kline" data-k="constexpr"><span class="ln">04</span><span>    XBLOCK: <span class="tok-a">tl.constexpr</span>):</span></button>
+          <button class="kline" data-k="specialize"><span class="ln">05</span><span>    xnumel = <span class="tok-c">10000</span></span></button>
+          <button class="kline" data-k="pid"><span class="ln">06</span><span>    xoffset = <span class="tok-a">tl.program_id</span>(0) * XBLOCK</span></button>
+          <button class="kline" data-k="arange"><span class="ln">07</span><span>    xindex = xoffset + <span class="tok-a">tl.arange</span>(0, XBLOCK)[:]</span></button>
+          <button class="kline" data-k="mask"><span class="ln">08</span><span>    xmask = xindex &lt; xnumel</span></button>
+          <button class="kline" data-k="alias"><span class="ln">09</span><span>    x0 = xindex</span></button>
+          <button class="kline" data-k="load"><span class="ln">10</span><span>    tmp0 = <span class="tok-a">tl.load</span>(in_ptr0 + x0, xmask, other=0.0)</span></button>
+          <button class="kline" data-k="cos"><span class="ln">11</span><span>    tmp1 = <span class="tok-a">tl.cos</span>(tmp0)</span></button>
+          <button class="kline" data-k="sin"><span class="ln">12</span><span>    tmp2 = <span class="tok-a">tl.sin</span>(tmp1)</span></button>
+          <button class="kline" data-k="store"><span class="ln">13</span><span>    <span class="tok-a">tl.store</span>(out_ptr0 + x0, tmp2, xmask)</span></button>
+        </div>
+        <aside class="kernel-note" aria-live="polite"><div class="badge" id="noteBadge">Start here</div><h3 id="noteTitle">Click a line to inspect it</h3><p id="noteBody">The explanation will distinguish scalar compile-time values, block tensors, pointers, masks, and register-resident intermediates.</p><div class="shape" id="noteShape">mental type: —</div></aside>
+      </div>
+      <p class="sources">Kernel shape follows PyTorch’s published TorchInductor example; generated names and metadata can vary by version and hardware. The important invariants are the program ID, block offsets, mask, vector loads, register computation, and vector store.</p>
+    </section>
+
+    <section id="grid">
+      <div class="section-head"><div class="sec-no">04</div><h2>Grid, program IDs, and the tail mask</h2><p>The Python wrapper launches enough program instances to cover <code>N</code>. Each program receives a different ID and creates <code>XBLOCK</code> candidate indices. Only indices below <code>N</code> are active.</p></div>
+      <div class="lab">
+        <div class="lab-head"><div><h3>Launch laboratory</h3><p style="margin:5px 0 0;color:var(--muted);font-size:13px">Change N and block size. The final program’s extra lanes become masked.</p></div>
+          <div class="lab-controls"><div class="control"><label><span>N elements</span><b id="nVal">37</b></label><input id="nRange" type="range" min="1" max="80" value="37" aria-label="Number of elements"></div><div class="control"><label><span>XBLOCK</span><b id="bVal">16</b></label><input id="bRange" type="range" min="3" max="5" value="4" aria-label="Block size exponent"></div></div>
+        </div>
+        <div class="lane-canvas" id="laneCanvas"></div>
+        <div class="lab-legend"><span><i class="key"></i>active: load + compute + store</span><span><i class="key off"></i>masked: no memory access</span></div>
+        <div class="formula" id="gridFormula">grid = (ceil_div(37, 16),) = (3,)</div>
+      </div>
+      <div class="split" style="margin-top:22px">
+        <div class="panel"><h3>Do not read it as CUDA thread IDs</h3><p><code>tl.program_id(0)</code> chooses a program instance. <code>tl.arange</code> builds a block tensor. Triton later maps that block to hardware threads. “One arange lane = one CUDA thread” is an unreliable mental model.</p></div>
+        <div class="panel"><h3>Why power-of-two blocks appear</h3><p>Triton’s block shapes and compiler heuristics commonly use powers of two. Inductor’s size hints and autotuning select a configuration that balances occupancy, memory coalescing, and register pressure.</p></div>
+      </div>
+    </section>
+
+    <section id="indexing">
+      <div class="section-head"><div class="sec-no">05</div><h2>Index algebra is the map back to tensors</h2><p>Generated kernels often flatten an iteration domain, then recover logical dimensions with division and remainder. Pointer formulas reveal layout, broadcasting, transpose, and reuse.</p></div>
+      <div class="split">
+        <div class="panel"><h3>Flatten [rows, cols] → 1D</h3><div class="codebox">xindex = pid * XBLOCK + arange(...)
+row = xindex // COLS
+col = xindex % COLS
+addr = base + row*stride0 + col*stride1</div><p>For a contiguous tensor, <code>stride0 = COLS</code> and <code>stride1 = 1</code>, so the address simplifies to the flat index.</p></div>
+        <div class="panel"><h3>Broadcast [rows, 1] across columns</h3><div class="codebox">row = xindex // COLS
+bias_addr = bias_ptr + row
+x_addr = x_ptr + xindex
+y = load(x_addr) + load(bias_addr)</div><p>The repeated <code>bias_addr</code> across every column is the broadcast. No tensor expansion needs to be materialized.</p></div>
+      </div>
+      <div class="panel" style="margin-top:22px"><div class="grid-visual"><div><b>Example [3 × 4]</b><p style="font-size:12px;color:var(--muted)">flat index 6 → row 1, col 2</p></div><div class="tensor" id="tensorGrid"></div></div><div class="memory" id="memoryGrid"></div></div>
+      <div class="callout"><strong>Stride-reading rule.</strong> The coefficient multiplying a logical coordinate is its stride in elements. Modulo isolates a coordinate; integer division advances to an outer dimension. A missing coordinate usually means broadcast reuse.</div>
+    </section>
+
+    <section id="fusion">
+      <div class="section-head"><div class="sec-no">06</div><h2>Fusion wins by deleting round trips</h2><p>For chained pointwise operations, the arithmetic was never the expensive part. The key is keeping intermediates like <code>tmp1</code> and <code>tmp2</code> inside a kernel instead of materializing whole tensors in global memory.</p></div>
+      <div class="compare">
+        <div class="panel"><h3>Unfused: cos kernel + sin kernel</h3><div class="metric">4N <small>global-memory element transfers</small></div><div class="traffic"><div class="bar bad" style="height:100%"><span>read x</span></div><div class="bar bad" style="height:100%"><span>write tmp</span></div><div class="bar bad" style="height:100%"><span>read tmp</span></div><div class="bar bad" style="height:100%"><span>write y</span></div></div></div>
+        <div class="panel"><h3>Fused: one generated kernel</h3><div class="metric">2N <small>global-memory element transfers</small></div><div class="traffic"><div class="bar good" style="height:100%"><span>read x</span></div><div class="bar" style="height:32%"><span>registers</span></div><div class="bar good" style="height:100%"><span>write y</span></div></div></div>
+      </div>
+      <div class="split" style="margin-top:22px"><div class="panel"><h3>What proves fusion?</h3><p>Both transcendental operations occur between one load and one store in the same kernel. There is no pointer or allocation for the intermediate.</p></div><div class="panel"><h3>Why fusion can stop</h3><p>Incompatible iteration orders, mutation/aliasing constraints, reductions, device changes, unsupported ops, or register-pressure tradeoffs can force a boundary.</p></div></div>
+    </section>
+
+    <section id="reductions">
+      <div class="section-head"><div class="sec-no">07</div><h2>Reduction kernels add a second axis</h2><p>A pointwise kernel has an output index. A reduction kernel also traverses a reduction index. In generated names, <code>x*</code> often tracks outputs and <code>r*</code> tracks the dimension being collapsed.</p></div>
+      <div class="reduction-flow">
+        <div class="rstep"><b>1 · X program</b><p>Choose one block of output positions with <code>xindex</code>.</p></div><div class="rstep"><b>2 · R tile</b><p>Create <code>rindex = roffset + tl.arange(0, RBLOCK)</code>.</p></div><div class="rstep"><b>3 · Mask + load</b><p>Combine <code>xmask</code> and <code>rmask</code>; inactive reduction lanes use an identity.</p></div><div class="rstep"><b>4 · Combine</b><p>Apply <code>tl.sum</code>, <code>tl.max</code>, or helper reduction and store one result.</p></div>
+      </div>
+      <div class="codebox" style="margin-top:22px"><span class="cm"># conceptual shape; exact generated code varies</span>
+xindex = xoffset + tl.arange(0, XBLOCK)[:, None]
+rindex = roffset + tl.arange(0, RBLOCK)[None, :]
+mask = (xindex &lt; xnumel) &amp; (rindex &lt; rnumel)
+v = tl.load(in_ptr + xindex * R + rindex, mask, other=0.0)
+partial = tl.sum(v, axis=1)
+tl.store(out_ptr + xindex[:, 0], partial, xmask)</div>
+      <div class="callout"><strong>Advanced reading:</strong> look for whether the reduction fits in one program or requires multiple partials, atomic updates, or a second kernel. Then inspect <code>RBLOCK</code>, accumulator dtype, and whether the loads are contiguous along the reduction axis.</div>
+    </section>
+
+    <section id="launch">
+      <div class="section-head"><div class="sec-no">08</div><h2>The wrapper is part of the performance story</h2><p><code>output_code.py</code> contains more than the kernel. The wrapper validates layouts, allocates outputs, computes launch dimensions, selects metadata, and invokes compiled kernels.</p></div>
+      <div class="split">
+        <div class="panel"><h3>Launch math</h3><div class="codebox">grid = (triton.cdiv(xnumel, XBLOCK),)
+kernel[grid](in_ptr0, out_ptr0, xnumel,
+             XBLOCK=chosen_block,
+             num_warps=chosen_warps)</div><p><code>cdiv</code> is ceiling division. The mask makes the rounded-up launch safe.</p></div>
+        <div class="panel"><h3>Compile-time vs runtime</h3><div class="map-row"><code>XBLOCK: tl.constexpr</code><span>compile-time specialization; usable in shapes</span></div><div class="map-row"><code>xnumel</code><span>runtime scalar, unless the generated kernel specializes it</span></div><div class="map-row"><code>in_ptr0</code><span>device pointer passed by the wrapper</span></div><div class="map-row"><code>num_warps</code><span>launch/config metadata, not tensor data</span></div></div>
+      </div>
+      <div class="panel" style="margin-top:22px"><h3>Name decoder</h3><div class="map-row"><code>triton_poi_…</code><span>pointwise-style iteration</span></div><div class="map-row"><code>triton_red_…</code><span>reduction-style kernel</span></div><div class="map-row"><code>fused_add_relu_0</code><span>human hint about fused ops; verify the body, not just the name</span></div><div class="map-row"><code>in_out_ptr0</code><span>buffer is mutated or reused in place</span></div><div class="map-row"><code>tmp0, tmp1…</code><span>SSA-like temporaries; usually registers, not allocated tensors</span></div></div>
+    </section>
+
+    <section id="debug">
+      <div class="section-head"><div class="sec-no">09</div><h2>Read your own generated output</h2><p>Use a tiny, deterministic function first. Warm it once to trigger compilation, then inspect the emitted wrapper and kernel. Generated text changes across PyTorch/Triton releases, so trust structure over cosmetics.</p></div>
+      <div class="codebox"><span class="cm"># inspect.py</span>
+import torch
+
+def f(x):
+    return torch.sin(torch.cos(x))
+
+x = torch.randn(10_000, device="cuda")
+compiled = torch.compile(f, fullgraph=True)
+y = compiled(x)                 <span class="cm"># first call compiles</span>
+torch.testing.assert_close(y, f(x))</div>
+      <div class="debug-grid" style="margin-top:20px">
+        <div class="debug-card"><h3>Generated code</h3><code>TORCH_LOGS="output_code" python inspect.py</code><p>Prints or points to the generated wrapper and kernels.</p></div>
+        <div class="debug-card"><h3>Full debug bundle</h3><code>TORCH_COMPILE_DEBUG=1 python inspect.py</code><p>Creates a debug directory with intermediate artifacts. Exact files vary.</p></div>
+        <div class="debug-card"><h3>Graph capture</h3><code>TORCH_LOGS="graph_code" python inspect.py</code><p>Compare the captured FX/ATen graph with the generated code.</p></div>
+        <div class="debug-card"><h3>Fusion question</h3><code>grep -n "@triton" output_code.py</code><p>Count kernels, then trace each output back to its loads.</p></div>
+        <div class="debug-card"><h3>Correctness first</h3><code>torch.testing.assert_close(...)</code><p>Different schedules are fine; different results are not.</p></div>
+        <div class="debug-card"><h3>Performance second</h3><code>torch.profiler / nsys</code><p>Generated code tells “what”; a profiler tells whether it matters.</p></div>
+      </div>
+      <div style="margin-top:28px">
+        <details open><summary>A kernel has many <code>%</code> and <code>//</code> expressions. What now?</summary><p>Write down the original tensor shapes beside the code. Rename <code>x0</code>/<code>x1</code> to semantic coordinates. Factor each pointer expression into coordinates × strides. You are reverse-engineering a layout transform.</p></details>
+        <details><summary>Why is <code>xnumel</code> an argument and then assigned a constant?</summary><p>The calling convention may keep a general scalar argument while codegen specializes the body for a guarded shape. The overwrite makes the specialization explicit and can enable constant folding.</p></details>
+        <details><summary>Why do I see an external GEMM call instead of Triton source?</summary><p>Not every operation uses generic pointwise codegen. Inductor may select an external library kernel or a specialized template. Read the wrapper’s call sequence to see the boundary and any fused prologue/epilogue kernels around it.</p></details>
+        <details><summary>Does fewer kernels always mean faster?</summary><p>No. Fusion removes launches and memory traffic, but an oversized kernel can increase register use, lower occupancy, or create poor access patterns. Confirm with profiling and benchmark representative shapes.</p></details>
+      </div>
+    </section>
+
+    <section id="practice">
+      <div class="section-head"><div class="sec-no">10</div><h2>A five-pass reading protocol</h2><p>Use the same order every time. It separates semantics from scheduling and stops temporary names from becoming noise.</p></div>
+      <div class="checklist">
+        <div class="check"><div><b>Find the output domain</b><span>Locate <code>xnumel</code>/<code>rnumel</code>, block constants, and the grid expression.</span></div></div>
+        <div class="check"><div><b>Decode every index</b><span>Translate modulo/division into named dimensions; annotate stride coefficients.</span></div></div>
+        <div class="check"><div><b>Trace store → loads</b><span>Recover the scalar formula from the final stored value back to source pointers.</span></div></div>
+        <div class="check"><div><b>Mark memory vs registers</b><span>Pointers and <code>tl.load/store</code> touch global memory; ordinary temporaries are usually register values.</span></div></div>
+        <div class="check"><div><b>Challenge the schedule</b><span>Check coalescing, masked tails, fusion boundaries, block sizes, reduction shape, and register pressure—then profile.</span></div></div>
+      </div>
+      <div class="panel" style="margin-top:24px"><h3>Exercises: one concept at a time</h3><ol><li>Compile <code>x + 1</code>. Predict load count, store count, and index formula before opening the output.</li><li>Compile <code>sin(cos(x))</code>. Verify the intermediate has no allocated pointer.</li><li>Compile <code>x + bias[:, None]</code>. Find the repeated broadcast address.</li><li>Compile <code>x.transpose(0,1) + 1</code>. Explain the changed stride formula.</li><li>Compile <code>x.sum(dim=-1)</code>. Identify the output and reduction axes.</li><li>Vary a non-multiple-of-block input size. Explain why correctness survives the tail.</li></ol></div>
+    </section>
+
+    <section id="sources">
+      <div class="section-head"><div class="sec-no">REF</div><h2>Primary references</h2><p>Use generated output from your installed version as the final authority; these references establish the model and inspection workflow.</p></div>
+      <ol class="sources">
+        <li><a href="https://docs.pytorch.org/tutorials/intermediate/torch_compile_tutorial.html?highlight=torch%20compile" target="_blank" rel="noopener">PyTorch — Introduction to torch.compile</a></li>
+        <li><a href="https://dev-discuss.pytorch.org/t/torchinductor-a-pytorch-native-compiler-with-define-by-run-ir-and-symbolic-shapes/747/1" target="_blank" rel="noopener">PyTorch Developer Mailing List — TorchInductor’s define-by-run loop IR and symbolic shapes</a></li>
+        <li><a href="https://triton-lang.org/main/getting-started/tutorials/01-vector-add.html" target="_blank" rel="noopener">Triton — Vector Addition tutorial and blocked programming model</a></li>
+        <li><a href="https://triton-lang.org/main/python-api/triton.language.html" target="_blank" rel="noopener">Triton language API — program_id, load/store, creation and reduction ops</a></li>
+      </ol>
+      <div class="footer-line">NEXT MENTAL STEP → READ A REDUCTION KERNEL, THEN A MATMUL TEMPLATE</div>
+    </section>
+  </main>
+</div>
+<script>
+(function(){
+  var notes={
+    decorator:["Compilation boundary","Triton JIT-compiles this Python function into GPU code. The function body describes one blocked program instance.","kind: compiler decorator"],
+    signature:["Kernel ABI","Pointers refer to device buffers. xnumel is a scalar extent. Argument order must match the wrapper’s launch.","mental types: ptr<float>, ptr<float>, int"],
+    constexpr:["Compile-time block size","XBLOCK is known while compiling. It can shape tl.arange and enables specialization; it is not read from GPU memory.","mental type: compile-time integer"],
+    specialize:["Guarded specialization","This emitted variant is specialized for 10,000 elements. Another guarded shape may select or compile another variant.","mental type: scalar compile-time fact"],
+    pid:["Which program am I?","Each program instance gets a scalar ID along grid axis 0. Multiplying by XBLOCK gives this program’s first logical index.","shape: scalar"],
+    arange:["Build a block of indices","tl.arange creates [0,1,…,XBLOCK−1]. Add the scalar base and xindex becomes a vector of logical element indices.","shape: [XBLOCK] int tensor"],
+    mask:["Protect the tail","The launch rounds up. This boolean vector is false for lanes beyond xnumel, preventing out-of-bounds loads and stores.","shape: [XBLOCK] bool tensor"],
+    alias:["Named logical coordinate","For a flat pointwise domain, x0 equals xindex. More complex kernels derive coordinates using %, //, and strides.","shape: [XBLOCK] int tensor"],
+    load:["Vectorized global-memory read","Pointer arithmetic creates one address per lane. Active lanes load values; other=0 defines inactive load values if later computation observes them.","shape: [XBLOCK] float tensor"],
+    cos:["Register computation","Cosine applies elementwise to the loaded block. tmp1 is a compiler value, not a separately allocated PyTorch tensor.","shape: [XBLOCK] float tensor"],
+    sin:["Fused consumer","Sine consumes tmp1 inside the same kernel. The absence of a store/load between cosine and sine is the fusion win.","shape: [XBLOCK] float tensor"],
+    store:["Vectorized global-memory write","Each active lane writes one result. The same tail mask guarantees only valid output addresses are touched.","shape: [XBLOCK] side effect"]
+  };
+  var lines=[].slice.call(document.querySelectorAll('.kline'));
+  lines.forEach(function(line){line.addEventListener('click',function(){lines.forEach(function(x){x.classList.remove('active')});line.classList.add('active');var n=notes[line.dataset.k];document.getElementById('noteBadge').textContent='LINE '+line.querySelector('.ln').textContent;document.getElementById('noteTitle').textContent=n[0];document.getElementById('noteBody').textContent=n[1];document.getElementById('noteShape').textContent=n[2]})});
+  lines[5].click();
+
+  var nRange=document.getElementById('nRange'),bRange=document.getElementById('bRange'),canvas=document.getElementById('laneCanvas');
+  function renderLanes(){var n=+nRange.value,b=Math.pow(2,+bRange.value),p=Math.ceil(n/b);document.getElementById('nVal').textContent=n;document.getElementById('bVal').textContent=b;canvas.innerHTML='';for(var j=0;j<p;j++){var row=document.createElement('div');row.className='program-row';var label=document.createElement('div');label.className='program-label';label.textContent='pid '+j;var lanes=document.createElement('div');lanes.className='lanes';lanes.style.gridTemplateColumns='repeat('+b+', minmax(0,1fr))';for(var k=0;k<b;k++){var idx=j*b+k,cell=document.createElement('div');cell.className='lane'+(idx>=n?' masked':'');cell.textContent=idx;lanes.appendChild(cell)}row.appendChild(label);row.appendChild(lanes);canvas.appendChild(row)}document.getElementById('gridFormula').textContent='grid = (ceil_div('+n+', '+b+'),) = ('+p+',)';}
+  nRange.addEventListener('input',renderLanes);bRange.addEventListener('input',renderLanes);renderLanes();
+
+  var tg=document.getElementById('tensorGrid'),mg=document.getElementById('memoryGrid');for(var i=0;i<12;i++){var c=document.createElement('div');c.className='cell'+(i===6?' sel':'');c.innerHTML='<span>'+Math.floor(i/4)+','+(i%4)+'</span>';tg.appendChild(c);var m=document.createElement('div');m.className='mem';m.textContent=i;mg.appendChild(m)}
+
+  var sections=[].slice.call(document.querySelectorAll('main section[id]')),links=[].slice.call(document.querySelectorAll('.rail a'));
+  function update(){var max=document.documentElement.scrollHeight-innerHeight,ratio=max>0?scrollY/max:0;document.getElementById('progress').style.width=(ratio*100)+'%';var current='top';sections.forEach(function(s){if(s.getBoundingClientRect().top<150)current=s.id});links.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+current)})}
+  addEventListener('scroll',update,{passive:true});update();
+})();
+</script>
+</body>
+</html>
