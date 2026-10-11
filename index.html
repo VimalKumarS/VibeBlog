@@ -86,7 +86,8 @@
         <div class="stats">
           <div class="stat"><b>8</b><span>System Design</span></div>
           <div class="stat"><b>5</b><span>Advanced Learning</span></div>
-          <div class="stat"><b>3</b><span>CS Fundamentals</span></div>
+          <div class="stat"><b>2</b><span>CS Fundamentals</span></div>
+          <div class="stat"><b>5</b><span>PyTorch IR Series</span></div>
         </div>
       </div>
     </div>
@@ -130,9 +131,22 @@ const GUIDES = [
   { section: "Advanced Learning Blog", file: "adv-learning-blog/ml-monitoring-visual-walkthrough.html",
     title: "ML Monitoring Visual Walkthrough", desc: "Monitoring ML systems in production." },
 
-  { section: "CS Fundamentals", file: "cs-fundamentals/pytorch-ir-and-graph-mode-visual-guide.html",
-    title: "PyTorch IR & Graph Mode — Series Hub",
-    desc: "From eager execution to GPU kernels: the full lowering pipeline." },
+  { section: "PyTorch IR Series", file: "cs-fundamentals/pytorch-ir-and-graph-mode-visual-guide.html",
+    title: "Series Hub: PyTorch IR & Graph Mode",
+    desc: "The full lowering pipeline overview — start here." },
+  { section: "PyTorch IR Series", file: "cs-fundamentals/pytorch-ir-part-1-eager-vs-graph-mode.html",
+    title: "Part 1: Eager vs Graph Mode",
+    desc: "Why ML compilers exist; timelines, fusion, and benchmarking labs." },
+  { section: "PyTorch IR Series", file: "cs-fundamentals/pytorch-ir-part-4-aotautograd.html",
+    title: "Part 4: AOTAutograd",
+    desc: "Joint forward-backward graphs, min-cut rematerialization." },
+  { section: "PyTorch IR Series", file: "cs-fundamentals/pytorch-ir-part-5-torchinductor-lowering.html",
+    title: "Part 5: TorchInductor Lowering",
+    desc: "Loop IR, fusion, memory planning, tiling, backends." },
+  { section: "PyTorch IR Series", file: "cs-fundamentals/pytorch-ir-part-6-triton-codegen.html",
+    title: "Part 6: Triton Codegen",
+    desc: "Reading generated GPU kernels line by line + launch lab." },
+
   { section: "CS Fundamentals", file: "cs-fundamentals/docker-visual-walkthrough.html",
     title: "Docker Visual Walkthrough", desc: "Containers, images, and Docker internals." },
   { section: "CS Fundamentals", file: "cs-fundamentals/dft_fft_journey.html",
