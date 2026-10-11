@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>PyTorch IR Part 4 — AOTAutograd</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,600;6..72,700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      color-scheme:light dark;
+      --bg:#f5f7f8; --paper:#ffffff; --paper-2:#edf1f3; --ink:#14202a; --muted:#56636d;
+      --line:#cfd7dc; --line-strong:#aebbc3; --hot:#e84a3c; --hot-soft:#fee7e3; --blue:#176b87;
+      --blue-soft:#dff1f5; --green:#24785a; --green-soft:#e2f2ea; --amber:#9a6500; --amber-soft:#fff0c9;
+      --code:#111820; --code-ink:#e7edf2; --shadow:0 16px 40px rgba(31,49,61,.09);
+      --serif:"Newsreader",Georgia,serif; --sans:"Manrope",system-ui,sans-serif; --mono:"IBM Plex Mono",monospace;
+    }
+    @media (prefers-color-scheme:dark){
+      :root{
+        --bg:#0d1216; --paper:#141c22; --paper-2:#1a252c; --ink:#eef4f6; --muted:#aebcc4;
+        --line:#2b3a43; --line-strong:#465965; --hot:#ff7062; --hot-soft:#3a211f; --blue:#64c2dd;
+        --blue-soft:#17333d; --green:#71d2a5; --green-soft:#18372a; --amber:#efc265; --amber-soft:#3b3018;
+        --code:#090d10; --code-ink:#e5eef2; --shadow:0 16px 40px rgba(0,0,0,.28);
+      }
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--sans)}
+    a{color:var(--blue);text-underline-offset:3px} button,input{font:inherit} code,kbd{font-family:var(--mono)}
+    .skip{position:fixed;left:12px;top:-60px;z-index:99;background:var(--ink);color:var(--paper);padding:10px 14px}.skip:focus{top:12px}
+    .top-progress{position:fixed;z-index:60;left:0;right:0;top:0;height:3px;background:transparent}.top-progress span{display:block;width:0;height:100%;background:var(--hot)}
+    .layout{display:grid;grid-template-columns:276px minmax(0,1fr);max-width:1480px;margin:auto;min-height:100vh}
+    aside{position:sticky;top:0;height:100vh;border-right:1px solid var(--line);padding:34px 24px 28px;background:var(--bg);overflow:auto}
+    .series{display:flex;align-items:center;gap:10px;font:600 12px/1.2 var(--mono);color:var(--hot);letter-spacing:.06em;text-transform:uppercase}.series i{width:22px;height:3px;background:var(--hot);display:inline-block}
+    .rail-title{font:700 28px/1.05 var(--serif);margin:18px 0 8px}.rail-sub{color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 24px}
+    nav ol{list-style:none;padding:0;margin:0;counter-reset:rail} nav li{counter-increment:rail} nav a{display:grid;grid-template-columns:26px 1fr;gap:8px;padding:8px 10px;margin:2px -10px;text-decoration:none;color:var(--muted);font-size:13px;border-radius:6px}nav a::before{content:counter(rail,decimal-leading-zero);font:500 11px var(--mono);padding-top:3px;color:var(--line-strong)}nav a:hover,nav a.active{background:var(--paper-2);color:var(--ink)}nav a.active::before{color:var(--hot)}
+    .rail-foot{margin-top:28px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+    main{min-width:0;padding:0 54px 96px}.content{max-width:1040px;margin:0 auto}
+    .hero{padding:78px 0 54px;border-bottom:1px solid var(--line)}
+    .eyebrow{font:600 12px var(--mono);color:var(--hot);text-transform:uppercase;letter-spacing:.1em;margin:0 0 18px}
+    h1{font:700 clamp(46px,6vw,82px)/.94 var(--serif);letter-spacing:-.035em;max-width:900px;margin:0}.hero .dek{max-width:780px;font-size:clamp(18px,2vw,23px);line-height:1.48;color:var(--muted);margin:26px 0 0}
+    .hero-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:28px;margin-top:42px}.premise{background:var(--ink);color:var(--paper);padding:26px 28px}.premise b{color:#ff8c80}.premise p{margin:0;font-size:19px;line-height:1.55}.outcomes{border-top:4px solid var(--hot);padding:19px 0 0}.outcomes strong{font:600 12px var(--mono);text-transform:uppercase;color:var(--muted)}.outcomes ul{margin:12px 0 0;padding-left:20px}.outcomes li{margin:6px 0}
+    section{scroll-margin-top:26px;padding:64px 0;border-bottom:1px solid var(--line)}
+    .section-no{font:600 12px var(--mono);color:var(--hot);letter-spacing:.1em}.section-head{display:grid;grid-template-columns:minmax(0,.72fr) minmax(280px,.28fr);gap:42px;align-items:end;margin-bottom:34px}.section-head h2{font:700 clamp(34px,4vw,54px)/1 var(--serif);letter-spacing:-.025em;margin:8px 0 0}.section-head p{color:var(--muted);margin:0}
+    h3{font:700 25px/1.2 var(--serif);margin:0 0 12px}h4{font:700 15px/1.35 var(--sans);margin:0 0 7px}.lead{font-size:20px;color:var(--muted);max-width:820px}.mark{background:linear-gradient(transparent 62%,var(--hot-soft) 62%)}
+    .callout{display:grid;grid-template-columns:44px 1fr;gap:14px;background:var(--blue-soft);padding:20px 22px;margin:26px 0}.callout svg{width:28px;height:28px;stroke:var(--blue)}.callout p{margin:0}.callout strong{display:block;margin-bottom:3px;color:var(--blue)}
+    .compare{display:grid;grid-template-columns:1fr 50px 1fr;align-items:stretch;margin:30px 0}.compare-card{background:var(--paper);border:1px solid var(--line);padding:24px}.compare-card h3{font-size:22px}.compare-card.bad{border-top:4px solid var(--amber)}.compare-card.good{border-top:4px solid var(--green)}.compare .vs{align-self:center;justify-self:center;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--paper);font:600 11px var(--mono);z-index:2}
+    .mini-list{list-style:none;padding:0;margin:15px 0 0}.mini-list li{display:grid;grid-template-columns:16px 1fr;gap:9px;margin:9px 0}.mini-list li::before{content:"→";color:var(--hot)}
+    .pipeline{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin:34px 0}.pipe-node{min-height:138px;padding:18px 14px;background:var(--paper);border:1px solid var(--line);position:relative}.pipe-node:not(:last-child)::after{content:"";position:absolute;right:-11px;top:50%;width:11px;height:1px;background:var(--line-strong)}.pipe-node .n{font:600 10px var(--mono);color:var(--muted)}.pipe-node strong{display:block;font-size:14px;line-height:1.3;margin:13px 0 7px}.pipe-node small{display:block;color:var(--muted);font-size:11px;line-height:1.4}.pipe-node.hot{background:var(--hot-soft);border-color:var(--hot)}.pipe-node.blue{background:var(--blue-soft);border-color:var(--blue)}.pipe-node.green{background:var(--green-soft);border-color:var(--green)}
+    .legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--muted)}.legend span{display:flex;align-items:center;gap:7px}.dot{width:10px;height:10px;display:inline-block}.dot.python{background:var(--paper);border:1px solid var(--line-strong)}.dot.aot{background:var(--hot-soft);border:1px solid var(--hot)}.dot.backend{background:var(--green-soft);border:1px solid var(--green)}
+    .steps{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:30px}.step{display:grid;grid-template-columns:72px 1fr 210px;gap:20px;background:var(--paper);padding:22px}.step-num{font:600 30px var(--serif);color:var(--hot)}.step p{margin:4px 0 0;color:var(--muted)}.step .artifact{align-self:center;font:500 11px/1.45 var(--mono);background:var(--paper-2);padding:10px;color:var(--blue)}
+    .tabs{margin:28px 0}.tabbar{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}.tabbar button{border:0;border-bottom:3px solid transparent;background:transparent;color:var(--muted);padding:10px 14px;cursor:pointer}.tabbar button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--hot);font-weight:700}.tab-panel{display:none}.tab-panel.active{display:block}
+    .codewrap{position:relative;background:var(--code);color:var(--code-ink);margin:0;overflow:hidden}.code-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #2a3640;color:#9fb0ba;font:500 11px var(--mono)}.copy{border:1px solid #43525d;background:transparent;color:#cbd6dc;border-radius:4px;padding:5px 9px;cursor:pointer}.copy:hover{border-color:#80929d}.codewrap pre{overflow:auto;padding:18px;margin:0;font:13px/1.65 var(--mono)}.kw{color:#ff8a80}.fn{color:#80d8ea}.cm{color:#82919b}.op{color:#ffc76a}.var{color:#b6e99d}
+    .graph-stage{background:var(--paper);border:1px solid var(--line);padding:24px;margin:28px 0}.graph-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}.graph-toolbar button{border:1px solid var(--line);background:var(--paper-2);color:var(--ink);padding:8px 12px;border-radius:4px;cursor:pointer;font-size:13px}.graph-toolbar button.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+    .graph{min-height:330px;position:relative;display:grid;grid-template-columns:repeat(7,1fr);align-items:center;gap:18px;padding:36px 4px 10px}.graph::before{content:"";position:absolute;left:4%;right:4%;top:50%;height:1px;background:var(--line-strong)}.node{position:relative;z-index:2;border:1px solid var(--line-strong);background:var(--paper-2);padding:12px 8px;text-align:center;min-height:68px;display:grid;place-items:center;font:600 12px/1.35 var(--mono)}.node.primal{border-color:var(--blue);background:var(--blue-soft)}.node.bwd{border-color:var(--hot);background:var(--hot-soft)}.node.saved{box-shadow:0 0 0 3px var(--amber-soft);border-color:var(--amber)}.node.recompute{border-style:dashed;border-color:var(--green);background:var(--green-soft)}.node.dim{opacity:.28}.node small{display:block;color:var(--muted);font-weight:400}.graph-label{grid-column:1/-1;display:flex;justify-content:space-between;font:500 11px var(--mono);color:var(--muted);margin-top:12px}.graph-caption{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}.graph-caption div{background:var(--paper-2);padding:15px}.graph-caption strong{display:block;font:600 12px var(--mono);color:var(--hot);margin-bottom:4px}
+    .equation{font:500 clamp(18px,2.4vw,28px)/1.55 var(--mono);padding:20px 24px;background:var(--ink);color:var(--paper);overflow:auto}.equation em{color:#ff8a80;font-style:normal}.equation .e-blue{color:#80d8ea}.equation .e-green{color:#b6e99d}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px}.three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.card{background:var(--paper);border:1px solid var(--line);padding:22px}.card .tag{font:600 10px var(--mono);text-transform:uppercase;color:var(--hot);letter-spacing:.08em}.card p{color:var(--muted);margin:9px 0 0}.card code{font-size:12px;color:var(--blue)}
+    .partition-lab{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:26px;background:var(--ink);color:var(--paper);padding:28px;margin-top:30px}.partition-lab h3{font-family:var(--serif);font-size:28px}.partition-lab p{color:#bac7cd}.range-row{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;margin:20px 0}.range-row input{width:100%;accent-color:var(--hot)}.range-row output{font:600 12px var(--mono);min-width:105px;color:#ff8a80}.cut-diagram{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:20px}.cut-diagram span{padding:13px 5px;text-align:center;background:#1d2931;border:1px solid #40515d;font:500 11px/1.35 var(--mono)}.cut-diagram span.save{border-color:#efc265;color:#efc265}.cut-diagram span.recompute{border-color:#71d2a5;color:#71d2a5;border-style:dashed}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{background:#1d2931;padding:16px}.metric b{display:block;font:700 28px var(--serif)}.metric small{color:#9fb0ba}.trade{font:500 11px/1.5 var(--mono);color:#9fb0ba;border-top:1px solid #374750;margin-top:16px;padding-top:14px}
+    .memory-flow{display:grid;grid-template-columns:1fr 80px 1fr;gap:10px;align-items:center;margin:30px 0}.memory-box{background:var(--paper);border:1px solid var(--line);padding:22px}.memory-box .stack{display:grid;gap:7px;margin-top:15px}.memory-box .stack span{background:var(--paper-2);padding:9px 11px;font:500 11px var(--mono);border-left:3px solid var(--amber)}.memory-arrow{text-align:center;color:var(--muted);font:600 11px var(--mono)}
+    .boundary{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:28px 0}.boundary > div{background:var(--paper);padding:25px}.boundary .yes{border-top:4px solid var(--green)}.boundary .no{border-top:4px solid var(--amber)}
+    .timeline{display:grid;grid-template-columns:140px 1fr;gap:0;margin:26px 0}.time{font:600 12px var(--mono);color:var(--hot);padding:17px 16px 17px 0;border-top:1px solid var(--line)}.event{padding:14px 0 17px 22px;border-top:1px solid var(--line);border-left:2px solid var(--line)}.event strong{display:block}.event p{margin:3px 0 0;color:var(--muted)}
+    .debug-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.debug-card{border-top:3px solid var(--hot);background:var(--paper);padding:20px}.debug-card p{margin:7px 0;color:var(--muted)}.debug-card .cmd{background:var(--paper-2);padding:8px 10px;font:500 11px/1.5 var(--mono);overflow:auto}
+    .quiz{display:grid;gap:12px}.quiz-item{border:1px solid var(--line);background:var(--paper)}.quiz-q{width:100%;border:0;background:transparent;color:var(--ink);display:grid;grid-template-columns:1fr auto;text-align:left;gap:12px;padding:18px 20px;cursor:pointer;font-weight:700}.quiz-q span:last-child{font:600 20px var(--mono);color:var(--hot)}.quiz-a{display:none;padding:0 20px 20px;color:var(--muted)}.quiz-item.open .quiz-a{display:block}.quiz-item.open .quiz-q span:last-child{transform:rotate(45deg)}
+    .recap{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:25px}.recap div{background:var(--paper);padding:18px}.recap b{display:block;color:var(--hot);font:600 12px var(--mono);margin-bottom:8px}.recap span{font-size:13px;color:var(--muted)}
+    .sources{display:grid;gap:10px}.source{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:15px 0;border-top:1px solid var(--line)}.source .num{font:600 12px var(--mono);color:var(--hot)}.source strong{display:block}.source small{color:var(--muted)}.source a{font-size:13px}
+    .mobile-nav{display:none}
+    @media(max-width:1000px){.layout{grid-template-columns:220px minmax(0,1fr)}main{padding:0 30px 80px}.pipeline{grid-template-columns:repeat(4,1fr)}.pipe-node:nth-child(4)::after{display:none}.step{grid-template-columns:52px 1fr}.step .artifact{grid-column:2}.recap{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:760px){
+      .codewrap pre{white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible}
+      .mobile-nav{display:flex;position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 16px;justify-content:space-between;align-items:center}.mobile-nav span{font:600 12px var(--mono);color:var(--hot)}.mobile-nav button{border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:7px 10px;border-radius:4px}
+      .layout{display:block}aside{display:none;position:fixed;z-index:55;inset:49px 0 0 0;height:auto;border:0;padding:24px;background:var(--bg)}aside.open{display:block}main{padding:0 18px 70px}.hero{padding:44px 0 40px}.hero-grid,.section-head,.two-col,.three-col,.partition-lab,.graph-caption,.boundary{grid-template-columns:1fr}.section-head{gap:16px}.compare{grid-template-columns:1fr}.compare .vs{margin:-11px auto}.pipeline{grid-template-columns:1fr 1fr}.pipe-node:nth-child(even)::after{display:none}.step{grid-template-columns:42px 1fr;padding:18px 14px;gap:10px}.step .artifact{grid-column:1/-1}.graph{grid-template-columns:1fr 1fr;gap:10px;min-height:0}.node::after{display:none}.graph-label{display:none}.memory-flow{grid-template-columns:1fr}.memory-arrow{padding:4px}.debug-grid{grid-template-columns:1fr}.recap{grid-template-columns:1fr 1fr}.source{grid-template-columns:28px 1fr}.source a{grid-column:2}.section-no{margin-bottom:4px}section{padding:48px 0}}
+    @media(max-width:430px){h1{font-size:44px}.pipeline,.recap{grid-template-columns:1fr}.pipe-node::after{display:none}.cut-diagram{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:1fr}.hero-grid{margin-top:30px}.premise{padding:22px}.graph{grid-template-columns:1fr}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+    @media print{aside,.mobile-nav,.top-progress,.copy{display:none!important}.layout{display:block}main{padding:0}.hero{padding-top:20px}.tab-panel{display:block!important}.quiz-a{display:block!important}section{break-inside:avoid}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a><div class="top-progress"><span id="progress"></span></div>
+<div class="mobile-nav"><span>PART 04 · AOTAUTOGRAD</span><button id="menuBtn" aria-expanded="false" aria-controls="rail">Contents</button></div>
+<div class="layout">
+  <aside id="rail">
+    <div class="series"><i></i>PyTorch IR · Part 04</div>
+    <div class="rail-title">AOTAutograd</div>
+    <p class="rail-sub">How one forward FX graph becomes two compiled programs for training.</p>
+    <nav aria-label="Guide sections"><ol>
+      <li><a href="#problem">The missing half</a></li><li><a href="#position">Where AOT fits</a></li><li><a href="#transform">Seven-stage transform</a></li><li><a href="#joint">The joint graph</a></li><li><a href="#partition">Partitioning</a></li><li><a href="#runtime">Runtime contract</a></li><li><a href="#compile">Training under compile</a></li><li><a href="#debug">Read the evidence</a></li><li><a href="#limits">Boundaries & failures</a></li><li><a href="#check">Knowledge check</a></li><li><a href="#sources">Sources</a></li>
+    </ol></nav>
+    <div class="rail-foot">Read in order once. Then return to the partition lab: that save-vs-recompute choice is the conceptual center.</div>
+  </aside>
+  <main id="main"><div class="content">
+    <header class="hero">
+      <p class="eyebrow">From a dynamic tape to compiler-visible training</p>
+      <h1>Autograd, ahead of time.</h1>
+      <p class="dek">TorchDynamo can capture the model’s forward tensor program. Training needs the other half—the gradient computation that eager PyTorch normally creates dynamically. AOTAutograd exposes that hidden work as FX, optimizes the forward/backward boundary, then hands both graphs to a backend such as TorchInductor.</p>
+      <div class="hero-grid">
+        <div class="premise"><p><b>The key transformation:</b> make parameters, tangents, gradients, saved activations, aliasing, and mutation explicit—so a compiler can reason about training as programs rather than runtime side effects.</p></div>
+        <div class="outcomes"><strong>After this guide, you can</strong><ul><li>read a joint graph</li><li>explain a partition cut</li><li>trace one compiled iteration</li><li>debug the right layer</li></ul></div>
+      </div>
+    </header>
+
+    <section id="problem">
+      <div class="section-head"><div><span class="section-no">01</span><h2>The forward graph is only half the program</h2></div><p>Inference consumes outputs. Training also asks: “How did every differentiable input contribute to the loss?”</p></div>
+      <div class="compare">
+        <div class="compare-card bad"><h3>Eager autograd: a dynamic tape</h3><p>As forward operators run, the autograd engine records enough history to later execute derivative formulas. Calling <code>backward()</code> traverses that runtime structure.</p><ul class="mini-list"><li>Flexible and debuggable</li><li>Backward work is not a Python-level FX graph up front</li><li>Harder for a backend to fuse across gradient ops</li></ul></div>
+        <div class="vs">VS</div>
+        <div class="compare-card good"><h3>AOTAutograd: explicit programs</h3><p>Run the trusted eager autograd machinery once during compilation—on tracing inputs—and record the tensor operations it performs.</p><ul class="mini-list"><li>Produces compiler-friendly forward and backward FX</li><li>Exposes the activation boundary</li><li>Enables separate backend compilation</li></ul></div>
+      </div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="8"/></svg>
+        <p><strong>“Ahead of time” is local, not ahead of deployment.</strong> Under <code>torch.compile</code>, capture usually happens lazily when a specialization is first seen. AOTAutograd means the backward graph is captured before that compiled backward executes—not that your whole model was compiled days earlier.</p>
+      </div>
+      <h3>A tiny derivative, made explicit</h3>
+      <div class="equation"><span class="e-blue">s</span> = a + b &nbsp;→&nbsp; <span class="e-green">u</span> = sin(s) &nbsp;→&nbsp; <em>L</em> = Σ(u²)<br>dL/ds = <em>tangent</em> × 2u × cos(s)</div>
+      <p>The eager tape knows this relationship implicitly through autograd nodes. The AOT path materializes its operator-level computation: multiply, cosine, multiply again—normal graph nodes a compiler can schedule and fuse.</p>
+    </section>
+
+    <section id="position">
+      <div class="section-head"><div><span class="section-no">02</span><h2>Place it correctly in the stack</h2></div><p>AOTAutograd does not replace Dynamo or Inductor. It is the training bridge between capture and code generation.</p></div>
+      <div class="pipeline" aria-label="torch.compile training pipeline">
+        <div class="pipe-node"><span class="n">01</span><strong>Python frame</strong><small>Module, loss code, tensor ops</small></div>
+        <div class="pipe-node blue"><span class="n">02</span><strong>TorchDynamo</strong><small>Bytecode capture + guards</small></div>
+        <div class="pipe-node blue"><span class="n">03</span><strong>Forward FX</strong><small>ATen-facing region</small></div>
+        <div class="pipe-node hot"><span class="n">04</span><strong>AOT dispatch</strong><small>Functionalize + trace AD</small></div>
+        <div class="pipe-node hot"><span class="n">05</span><strong>Joint FX</strong><small>Primals + tangents</small></div>
+        <div class="pipe-node hot"><span class="n">06</span><strong>Partition</strong><small>Forward | saved | backward</small></div>
+        <div class="pipe-node green"><span class="n">07</span><strong>Inductor</strong><small>Kernels for each graph</small></div>
+      </div>
+      <div class="legend"><span><i class="dot python"></i>Python/runtime</span><span><i class="dot aot"></i>AOTAutograd’s responsibility</span><span><i class="dot backend"></i>Backend code generation</span></div>
+      <div class="three-col" style="margin-top:30px">
+        <div class="card"><span class="tag">Dynamo answers</span><h3>What tensor program ran?</h3><p>It specializes Python execution into guarded FX graph regions and leaves unsupported Python around them.</p></div>
+        <div class="card"><span class="tag">AOTAutograd answers</span><h3>What derivatives must run?</h3><p>It exposes autograd’s tensor work, normalizes graph semantics, and selects what crosses the forward/backward boundary.</p></div>
+        <div class="card"><span class="tag">Inductor answers</span><h3>How should it execute?</h3><p>It lowers each FX graph, schedules operations, fuses compatible work, and emits target code.</p></div>
+      </div>
+    </section>
+
+    <section id="transform">
+      <div class="section-head"><div><span class="section-no">03</span><h2>One Dynamo graph enters; two backend graphs leave</h2></div><p>The real path contains bookkeeping and edge cases. Keep this seven-stage invariant in your head.</p></div>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div><h3>Specialize the call</h3><p>Dynamo has already captured a graph region and guards the assumptions used to build it: relevant types, tensor metadata, constants, and shape relationships.</p></div><div class="artifact">input: FX GraphModule + example inputs</div></div>
+        <div class="step"><div class="step-num">2</div><div><h3>Flatten the world</h3><p>Nested arguments and outputs are converted to a flat calling convention. Parameters and buffers become explicit graph inputs. This is easier for compilers than arbitrary Python containers and module state.</p></div><div class="artifact">pytree → flat tuple<br>state → placeholders</div></div>
+        <div class="step"><div class="step-num">3</div><div><h3>Model values without real allocation</h3><p>Fake tensors carry shape, dtype, device, layout, and stride metadata without requiring the real data allocation. They let tracing propagate tensor metadata cheaply; truly data-dependent behavior cannot be decided from metadata alone.</p></div><div class="artifact">Tensor[N,D] → FakeTensor[N,D]</div></div>
+        <div class="step"><div class="step-num">4</div><div><h3>Functionalize mutation and aliases</h3><p>In-place updates and views are semantically important but awkward for pure dataflow. Functionalization rewrites mutations into out-of-place equivalents and records how observable mutations or aliases must be repaired at the boundary.</p></div><div class="artifact">add_ → add<br>view alias → explicit metadata</div></div>
+        <div class="step"><div class="step-num">5</div><div><h3>Run autograd while tracing</h3><p>PyTorch’s own derivative formulas execute through the dispatcher on tracing tensors. Their ATen operations are recorded beside the forward work, producing a joint forward-backward graph.</p></div><div class="artifact">primals + tangents → outputs + grads</div></div>
+        <div class="step"><div class="step-num">6</div><div><h3>Partition the joint graph</h3><p>The partitioner chooses which intermediate values the forward returns for later use, and which cheap forward values the backward should recompute. The result is a forward FX graph and a backward FX graph.</p></div><div class="artifact">joint FX → fw FX + bw FX</div></div>
+        <div class="step"><div class="step-num">7</div><div><h3>Compile and wrap</h3><p>The backend compiles each graph. A generated autograd wrapper makes them look like ordinary PyTorch: forward returns user outputs while retaining saved values; backward consumes incoming tangents and returns gradients in input order.</p></div><div class="artifact">compiled_fn(...).backward()</div></div>
+      </div>
+      <div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h7"/></svg><p><strong>Why ATen-level graphs?</strong> Backends benefit from a smaller, explicit operator vocabulary. Decompositions can replace composite operators with simpler ATen operations; exact graphs vary by PyTorch version, backend, configuration, and operator.</p></div>
+    </section>
+
+    <section id="joint">
+      <div class="section-head"><div><span class="section-no">04</span><h2>Read the joint graph as a VJP program</h2></div><p>Reverse-mode AD computes a vector–Jacobian product. The upstream gradient is a real input, conventionally called a tangent.</p></div>
+      <div class="tabs" data-tabs>
+        <div class="tabbar" role="tablist"><button role="tab" aria-selected="true" data-tab="source">Python</button><button role="tab" aria-selected="false" data-tab="joint-code">Conceptual joint FX</button><button role="tab" aria-selected="false" data-tab="math">Value flow</button></div>
+        <div class="tab-panel active" data-panel="source"><div class="codewrap"><div class="code-head"><span>worked_example.py</span><button class="copy">Copy</button></div><pre><code><span class="kw">import</span> torch
+
+<span class="kw">def</span> <span class="fn">loss_fn</span>(a, b):
+    s = a + b
+    u = torch.sin(s)
+    <span class="kw">return</span> (u * u).sum()
+
+a = torch.randn(<span class="op">1024</span>, requires_grad=<span class="kw">True</span>)
+b = torch.randn(<span class="op">1024</span>, requires_grad=<span class="kw">True</span>)
+compiled = torch.compile(loss_fn)
+compiled(a, b).backward()</code></pre></div></div>
+        <div class="tab-panel" data-panel="joint-code"><div class="codewrap"><div class="code-head"><span>simplified — names and exact overloads may differ</span><button class="copy">Copy</button></div><pre><code><span class="kw">def</span> <span class="fn">joint</span>(primals_a, primals_b, tangents_loss):
+    <span class="cm"># forward</span>
+    s = torch.ops.aten.add.Tensor(primals_a, primals_b)
+    u = torch.ops.aten.sin.default(s)
+    sq = torch.ops.aten.mul.Tensor(u, u)
+    loss = torch.ops.aten.sum.default(sq)
+
+    <span class="cm"># backward: VJP seeded by tangents_loss</span>
+    two_u = torch.ops.aten.add.Tensor(u, u)
+    local = torch.ops.aten.cos.default(s)
+    grad_s = tangents_loss * two_u * local
+    <span class="kw">return</span> [loss, grad_s, grad_s]</code></pre></div></div>
+        <div class="tab-panel" data-panel="math"><div class="equation"><span class="e-blue">inputs</span>: a, b, Ḷ<br><span class="e-green">forward</span>: s=a+b; u=sin(s); L=Σu²<br><em>reverse</em>: ū=Ḷ·2u; s̄=ū·cos(s); ā=s̄; b̄=s̄</div><p><code>Ḷ</code> is the incoming cotangent for the scalar loss. With a normal <code>loss.backward()</code>, its effective value is 1. For non-scalar outputs, the caller supplies a matching gradient.</p></div>
+      </div>
+      <div class="graph-stage">
+        <div class="graph-toolbar" aria-label="Graph view"><button class="active" data-view="joint">Joint graph</button><button data-view="forward">Forward only</button><button data-view="backward">Backward only</button></div>
+        <div class="graph" id="jointGraph">
+          <div class="node primal" data-kind="f">a, b<small>primals</small></div><div class="node" data-kind="f">add<small>s</small></div><div class="node" data-kind="f">sin<small>u</small></div><div class="node" data-kind="f">mul + sum<small>L</small></div><div class="node bwd" data-kind="b">tangent<small>Ḷ</small></div><div class="node bwd" data-kind="b">2u · cos(s)</div><div class="node bwd" data-kind="b">grad a, b</div>
+          <div class="graph-label"><span>FORWARD REGION</span><span>REVERSE-MODE REGION</span></div>
+        </div>
+        <div class="graph-caption"><div><strong>PRIMALS</strong>The concrete values being differentiated: inputs, lifted parameters, and buffers as required.</div><div><strong>TANGENTS / COTANGENTS</strong>Upstream gradients arriving from consumers of the forward outputs; they seed the reverse computation.</div></div>
+      </div>
+      <p class="lead"><span class="mark">Joint visibility matters because the best forward boundary depends on backward needs.</span> If the compiler sees only the forward, it cannot decide whether saving an activation is more expensive than regenerating it later.</p>
+    </section>
+
+    <section id="partition">
+      <div class="section-head"><div><span class="section-no">05</span><h2>Partitioning is a memory–compute contract</h2></div><p>A partitioner is not merely drawing a line. It chooses the values that cross time from forward execution to backward execution.</p></div>
+      <div class="two-col">
+        <div class="card"><span class="tag">Save</span><h3>Forward exports an activation</h3><p>The backward begins quickly because the value already exists. Cost: activation memory, lifetime extension, and often a device-memory write/read across the boundary.</p></div>
+        <div class="card"><span class="tag">Recompute</span><h3>Backward recreates an activation</h3><p>Forward retains less. Backward performs extra operators. This can win when those operators are cheap and fuse into nearby backward work.</p></div>
+      </div>
+      <div class="partition-lab">
+        <div><h3>Partition lab</h3><p>Move the policy from “save intermediates” toward “recompute cheap pointwise work.” This is an explanatory model for the worked graph—not a measured PyTorch cost model.</p><div class="range-row"><input id="cutRange" type="range" min="0" max="2" step="1" value="0" aria-label="Partition policy"><output id="cutLabel">save s + u</output></div><div class="cut-diagram"><span>a+b</span><span id="cutS" class="save">s · saved</span><span id="cutU" class="save">u · saved</span><span>backward</span></div><div class="trade" id="tradeText">Lowest recompute; highest saved-activation footprint in this toy chain.</div></div>
+        <div><div class="metrics"><div class="metric"><b id="saveCount">2</b><small>values saved</small></div><div class="metric"><b id="redoCount">0</b><small>forward ops repeated</small></div></div><div class="metric" style="margin-top:10px"><b id="boundaryText">s, u</b><small>conceptual forward → backward payload</small></div></div>
+      </div>
+      <h3 style="margin-top:38px">What “min-cut rematerialization” is optimizing</h3>
+      <p>Conceptually, the joint dataflow graph becomes a flow network. Candidate values carry costs: keeping a tensor consumes memory bandwidth/capacity; recomputing its producer consumes compute and may affect fusion. A cut separates mandatory forward work from backward-required work while choosing a legal, low-cost set of saved values. Heuristics prevent unsafe or expensive recomputation.</p>
+      <div class="three-col">
+        <div class="card"><span class="tag">Good to recompute</span><h3>Cheap pointwise ops</h3><p>Examples: elementwise arithmetic or activations, especially when they can fuse into a backward kernel.</p></div>
+        <div class="card"><span class="tag">Often save</span><h3>Expensive producers</h3><p>Large matrix multiplications, convolutions, or other costly results may be poor rematerialization candidates.</p></div>
+        <div class="card"><span class="tag">Must respect</span><h3>Semantics</h3><p>Randomness, mutation, aliasing, views, side effects, and input requirements constrain legal cuts and rewrites.</p></div>
+      </div>
+      <div class="memory-flow"><div class="memory-box"><h3>Save-oriented forward</h3><p>Return user output plus more residuals.</p><div class="stack"><span>loss</span><span>s activation</span><span>u activation</span></div></div><div class="memory-arrow">MORE<br>BYTES →</div><div class="memory-box"><h3>Recompute-oriented forward</h3><p>Return user output plus a smaller residual set.</p><div class="stack"><span>loss</span><span>s activation</span></div></div></div>
+      <p class="lead">This is related to activation checkpointing, but AOTAutograd can choose at an operator boundary with compiler knowledge. The win is not “recompute everything”; it is <strong>recompute the right things</strong>.</p>
+    </section>
+
+    <section id="runtime">
+      <div class="section-head"><div><span class="section-no">06</span><h2>Two graphs, one autograd contract</h2></div><p>The user still sees a normal tensor with a grad function. The wrapper hides a very explicit calling convention underneath.</p></div>
+      <div class="tabs" data-tabs>
+        <div class="tabbar" role="tablist"><button role="tab" aria-selected="true" data-tab="fw">Generated forward</button><button role="tab" aria-selected="false" data-tab="bw">Generated backward</button><button role="tab" aria-selected="false" data-tab="wrapper">Wrapper contract</button></div>
+        <div class="tab-panel active" data-panel="fw"><div class="codewrap"><div class="code-head"><span>conceptual forward FX after partition</span><button class="copy">Copy</button></div><pre><code><span class="kw">def</span> <span class="fn">forward_graph</span>(a, b):
+    s = aten.add(a, b)
+    u = aten.sin(s)
+    sq = aten.mul(u, u)
+    loss = aten.sum(sq)
+    <span class="kw">return</span> loss, s       <span class="cm"># loss is public; s is residual</span></code></pre></div></div>
+        <div class="tab-panel" data-panel="bw"><div class="codewrap"><div class="code-head"><span>conceptual backward FX after partition</span><button class="copy">Copy</button></div><pre><code><span class="kw">def</span> <span class="fn">backward_graph</span>(s, tangent_loss):
+    u = aten.sin(s)              <span class="cm"># rematerialized</span>
+    local = aten.mul(aten.add(u, u), aten.cos(s))
+    grad_s = aten.mul(tangent_loss, local)
+    <span class="kw">return</span> grad_s, grad_s     <span class="cm"># gradients align with a, b</span></code></pre></div></div>
+        <div class="tab-panel" data-panel="wrapper"><div class="codewrap"><div class="code-head"><span>conceptual autograd.Function wrapper</span><button class="copy">Copy</button></div><pre><code><span class="kw">class</span> <span class="fn">CompiledFunction</span>(torch.autograd.Function):
+    @staticmethod
+    <span class="kw">def</span> <span class="fn">forward</span>(ctx, a, b):
+        loss, saved_s = compiled_fw(a, b)
+        ctx.save_for_backward(saved_s)
+        <span class="kw">return</span> loss
+
+    @staticmethod
+    <span class="kw">def</span> <span class="fn">backward</span>(ctx, tangent_loss):
+        (saved_s,) = ctx.saved_tensors
+        grad_a, grad_b = compiled_bw(saved_s, tangent_loss)
+        <span class="kw">return</span> grad_a, grad_b</code></pre></div></div>
+      </div>
+      <div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg><p><strong>Backward compiles lazily in a common workflow.</strong> The forward compiler is needed when the compiled function first runs; the backward compiler may not be invoked until the first backward call. This is why first-iteration timing can contain multiple compilation phases.</p></div>
+      <div class="timeline">
+        <div class="time">FIRST CALL</div><div class="event"><strong>Dynamo specialization + AOT tracing + forward compilation</strong><p>Compile work is cached for compatible future calls.</p></div>
+        <div class="time">FORWARD RUN</div><div class="event"><strong>Execute compiled forward</strong><p>Return the visible loss and retain residual values selected by the partitioner.</p></div>
+        <div class="time">FIRST BACKWARD</div><div class="event"><strong>Compile if needed, then execute compiled backward</strong><p>Incoming tangent + residuals become gradients for differentiable inputs.</p></div>
+        <div class="time">STEADY STATE</div><div class="event"><strong>Reuse cached specializations</strong><p>Guard success avoids recapture; guard failure can trigger another specialization and compile.</p></div>
+      </div>
+    </section>
+
+    <section id="compile">
+      <div class="section-head"><div><span class="section-no">07</span><h2>How this enables training under <code>torch.compile</code></h2></div><p>The training speedup opportunity is larger than inference because backward often contains many small, fusible derivative operations.</p></div>
+      <div class="boundary">
+        <div class="yes"><h3>Inside AOTAutograd’s useful view</h3><ul class="mini-list"><li>The captured forward tensor region</li><li>Derivative formulas generated for that region</li><li>Saved activation choices</li><li>Forward and backward FX handed to the backend</li></ul></div>
+        <div class="no"><h3>Not automatically “the whole trainer”</h3><ul class="mini-list"><li>Arbitrary Python around graph breaks</li><li>Data loading and host-side orchestration</li><li>Every optimizer implementation or hook</li><li>Uncaptured autograd work outside the region</li></ul></div>
+      </div>
+      <div class="codewrap"><div class="code-head"><span>a practical training loop</span><button class="copy">Copy</button></div><pre><code>model = MyModel().cuda()
+compiled_model = torch.compile(model)
+optimizer = torch.optim.AdamW(model.parameters(), lr=<span class="op">3e-4</span>)
+
+<span class="kw">for</span> x, target <span class="kw">in</span> loader:
+    optimizer.zero_grad(set_to_none=<span class="kw">True</span>)
+    pred = compiled_model(x.cuda())       <span class="cm"># captured forward region</span>
+    loss = loss_fn(pred, target.cuda())
+    loss.backward()                       <span class="cm"># compiled AOT backward for region</span>
+    optimizer.step()                      <span class="cm"># capture depends on how loop is compiled</span></code></pre></div>
+      <div class="three-col" style="margin-top:24px">
+        <div class="card"><span class="tag">Fusion</span><h3>Fewer launches</h3><p>Derivative chains that eager mode dispatches as separate operators can become fused kernels where legality and profitability allow.</p></div>
+        <div class="card"><span class="tag">Memory</span><h3>Smarter residuals</h3><p>The partitioner can trade cheap recomputation for fewer saved activation bytes and better memory traffic.</p></div>
+        <div class="card"><span class="tag">Reuse</span><h3>Compile once per specialization</h3><p>Compatible calls reuse generated code; changing guarded assumptions may compile a new variant.</p></div>
+      </div>
+      <h3 style="margin-top:38px">AOTAutograd ≠ Compiled Autograd</h3>
+      <p><strong>AOTAutograd</strong> traces the backward associated with a captured forward graph region and creates the forward/backward pair discussed here. <strong>Compiled Autograd</strong> is a separate feature that captures autograd-engine execution at backward runtime, potentially forming a larger backward graph across AOTAutograd boundaries and including more runtime behavior such as hooks. They can participate in the same stack, but they solve different capture-boundary problems.</p>
+    </section>
+
+    <section id="debug">
+      <div class="section-head"><div><span class="section-no">08</span><h2>Read the compiler’s evidence</h2></div><p>Do not debug “torch.compile” as one box. Ask which representation first diverges from your expectation.</p></div>
+      <div class="debug-grid">
+        <div class="debug-card"><h3>Dynamo graph</h3><p>Did Python capture produce one useful region? Are graph breaks fragmenting it?</p><div class="cmd">TORCH_LOGS="graph_code,graph_breaks" python train.py</div></div>
+        <div class="debug-card"><h3>Joint graph</h3><p>Which primal and tangent inputs appear? Which derivative ops did autograd emit before partitioning?</p><div class="cmd">TORCH_LOGS="aot_joint_graph" python train.py</div></div>
+        <div class="debug-card"><h3>Partitioned graphs</h3><p>What residuals leave forward? Which forward operators reappear in backward?</p><div class="cmd">TORCH_LOGS="aot_graphs" python train.py</div></div>
+        <div class="debug-card"><h3>Generated kernels</h3><p>Did Inductor fuse the work? What target code and scheduling decisions resulted?</p><div class="cmd">TORCH_LOGS="output_code" python train.py</div></div>
+      </div>
+      <div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><p><strong>Recommended reading order:</strong> Dynamo graph → joint graph → partitioned forward/backward → backend output. If you start from a Triton kernel, you have already discarded the higher-level explanation for why an operation exists.</p></div>
+      <h3>What to annotate when you inspect a real graph</h3>
+      <div class="recap"><div><b>01 · INPUTS</b><span>Primals, lifted parameters, buffers, tangents.</span></div><div><b>02 · OPS</b><span>ATen overloads and decomposed operators.</span></div><div><b>03 · RESIDUALS</b><span>Extra forward outputs consumed by backward.</span></div><div><b>04 · REPEATS</b><span>Forward ops deliberately rematerialized.</span></div><div><b>05 · GRAD ORDER</b><span>Which returned gradient matches each input.</span></div></div>
+    </section>
+
+    <section id="limits">
+      <div class="section-head"><div><span class="section-no">09</span><h2>Semantic boundaries and failure modes</h2></div><p>AOTAutograd makes a difficult system tractable by normalizing semantics—not by pretending PyTorch is a pure functional language.</p></div>
+      <div class="two-col">
+        <div class="card"><span class="tag">Mutation & aliasing</span><h3>Functionalization is essential</h3><p>An in-place update can affect every alias of the same storage. Rewriting it requires preserving observable behavior, updating inputs when necessary, and regenerating alias relationships at outputs.</p></div>
+        <div class="card"><span class="tag">Data dependence</span><h3>Metadata cannot reveal values</h3><p>Fake tensors know shape and stride, not data. A branch controlled by a tensor value may force a graph break or require a higher-order representation rather than ordinary tracing.</p></div>
+        <div class="card"><span class="tag">Randomness</span><h3>Recompute must reproduce semantics</h3><p>Blindly repeating a random operation could draw a different value. RNG handling and partition legality must preserve the program’s intended behavior.</p></div>
+        <div class="card"><span class="tag">Graph fragmentation</span><h3>Small regions limit the payoff</h3><p>Each Dynamo graph region gets its own AOT treatment. Frequent breaks reduce fusion scope, increase wrappers, and can raise compilation overhead.</p></div>
+        <div class="card"><span class="tag">Specialization</span><h3>Guards still govern reuse</h3><p>AOTAutograd does not remove Dynamo’s assumptions. New shapes, strides, dtypes, modes, or Python states can require another compiled specialization.</p></div>
+        <div class="card"><span class="tag">Private APIs</span><h3>Inspect, don’t couple blindly</h3><p>Low-level <code>torch._functorch</code> and compiler internals are useful for learning and backend development but may change. Prefer public <code>torch.compile</code> workflows for application code.</p></div>
+      </div>
+      <div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5m0 3v1"/></svg><p><strong>Performance is an empirical result, not a guarantee.</strong> Compilation adds warm-up cost; fusion and rematerialization depend on the graph, hardware, shapes, backend, and version. Measure steady-state throughput, first-step latency, peak memory, and numerical agreement.</p></div>
+    </section>
+
+    <section id="check">
+      <div class="section-head"><div><span class="section-no">10</span><h2>Knowledge check</h2></div><p>If you can answer these without reopening the guide, the mental model is working.</p></div>
+      <div class="quiz">
+        <div class="quiz-item"><button class="quiz-q"><span>Why can’t TorchDynamo alone fully optimize the ordinary eager backward pass?</span><span>+</span></button><div class="quiz-a">Dynamo captures Python execution into FX regions, while eager autograd’s backward work is generated and run inside the autograd engine below that Python-level capture. AOTAutograd executes the trusted derivative machinery during tracing and records those tensor operations as a graph.</div></div>
+        <div class="quiz-item"><button class="quiz-q"><span>What are “primals” and “tangents” in a joint graph?</span><span>+</span></button><div class="quiz-a">Primals are the values being differentiated: inputs and lifted state. Tangents/cotangents are upstream gradients arriving at outputs; reverse-mode uses them to compute vector–Jacobian products and return gradients aligned with primal inputs.</div></div>
+        <div class="quiz-item"><button class="quiz-q"><span>Why does the forward graph return values the user never requested?</span><span>+</span></button><div class="quiz-a">Those extra outputs are residuals saved for backward. The wrapper hides them from the user but retains them until backward. The partitioner decides which values become residuals.</div></div>
+        <div class="quiz-item"><button class="quiz-q"><span>When can recomputation improve both memory and runtime?</span><span>+</span></button><div class="quiz-a">When a saved tensor would incur meaningful memory traffic and its producer is cheap enough to regenerate—especially when the repeated pointwise work fuses with surrounding backward operations. It is a graph- and backend-specific tradeoff.</div></div>
+        <div class="quiz-item"><button class="quiz-q"><span>Which log would you inspect first to understand a surprising saved tensor?</span><span>+</span></button><div class="quiz-a">Compare <code>aot_joint_graph</code> (what dependencies exist before the cut) with <code>aot_graphs</code> (what the partitioner placed in forward and backward). Then inspect backend output only if the graph-level choice looks correct.</div></div>
+      </div>
+      <h3 style="margin-top:40px">The entire guide in five verbs</h3>
+      <div class="recap"><div><b>CAPTURE</b><span>Dynamo extracts a guarded forward FX region.</span></div><div><b>NORMALIZE</b><span>Flatten, functionalize, decompose, lift state.</span></div><div><b>DIFFERENTIATE</b><span>Trace eager autograd into a joint graph.</span></div><div><b>PARTITION</b><span>Choose saved residuals versus recomputation.</span></div><div><b>LOWER</b><span>Compile forward and backward independently.</span></div></div>
+    </section>
+
+    <section id="sources">
+      <div class="section-head"><div><span class="section-no">11</span><h2>Primary reading</h2></div><p>Official PyTorch documentation and developer material. Internal graph details evolve; verify against the version you run.</p></div>
+      <div class="sources">
+        <div class="source"><span class="num">01</span><div><strong>AOT Autograd: how to use and optimize</strong><small>Forward/backward graph extraction, fusion, saved tensors, and recomputation walkthrough.</small></div><a href="https://docs.pytorch.org/functorch/2.0/notebooks/aot_autograd_optimizations.html" target="_blank" rel="noopener">Open source ↗</a></div>
+        <div class="source"><span class="num">02</span><div><strong>TorchDynamo training support with AOTAutograd</strong><small>Why training capture needs AOTAutograd and how it reuses eager autograd.</small></div><a href="https://dev-discuss.pytorch.org/t/torchdynamo-update-6-training-support-with-aotautograd/570" target="_blank" rel="noopener">Open source ↗</a></div>
+        <div class="source"><span class="num">03</span><div><strong>Introduction to torch.compile</strong><small>Capture, graph breaks, caching, and the user-facing compilation workflow.</small></div><a href="https://docs.pytorch.org/tutorials/intermediate/torch_compile_tutorial.html?highlight=torch%20compile" target="_blank" rel="noopener">Open source ↗</a></div>
+        <div class="source"><span class="num">04</span><div><strong>PyTorch logging reference</strong><small>Definitions for <code>aot_joint_graph</code>, <code>aot_graphs</code>, graph code, guards, and output code.</small></div><a href="https://docs.pytorch.org/docs/main/logging.html" target="_blank" rel="noopener">Open source ↗</a></div>
+        <div class="source"><span class="num">05</span><div><strong>Compiled Autograd tutorial</strong><small>Useful for distinguishing AOTAutograd’s region-level backward from runtime backward capture.</small></div><a href="https://docs.pytorch.org/tutorials/intermediate/compiled_autograd_tutorial.html" target="_blank" rel="noopener">Open source ↗</a></div>
+      </div>
+    </section>
+  </div></main>
+</div>
+<script>
+(function(){
+  var menuBtn=document.getElementById('menuBtn'),rail=document.getElementById('rail');
+  if(menuBtn){menuBtn.addEventListener('click',function(){var open=rail.classList.toggle('open');menuBtn.setAttribute('aria-expanded',String(open));});}
+  document.querySelectorAll('nav a').forEach(function(a){a.addEventListener('click',function(){rail.classList.remove('open');if(menuBtn)menuBtn.setAttribute('aria-expanded','false');});});
+  var links=[].slice.call(document.querySelectorAll('nav a')), sections=links.map(function(a){return document.querySelector(a.getAttribute('href'));});
+  function updateScroll(){var h=document.documentElement,ratio=h.scrollTop/(h.scrollHeight-h.clientHeight);document.getElementById('progress').style.width=(Math.max(0,Math.min(1,ratio))*100)+'%';var current=sections[0];sections.forEach(function(s){if(s&&s.getBoundingClientRect().top<160)current=s;});links.forEach(function(a){a.classList.toggle('active',current&&a.getAttribute('href')==='#'+current.id);});}
+  addEventListener('scroll',updateScroll,{passive:true});updateScroll();
+  document.querySelectorAll('[data-tabs]').forEach(function(group){var buttons=group.querySelectorAll('[data-tab]'),panels=group.querySelectorAll('[data-panel]');buttons.forEach(function(btn){btn.addEventListener('click',function(){buttons.forEach(function(b){b.setAttribute('aria-selected','false');});panels.forEach(function(p){p.classList.remove('active');});btn.setAttribute('aria-selected','true');group.querySelector('[data-panel="'+btn.dataset.tab+'"]').classList.add('active');});});});
+  document.querySelectorAll('.copy').forEach(function(btn){btn.addEventListener('click',function(){var code=btn.closest('.codewrap').querySelector('code').innerText;navigator.clipboard.writeText(code).then(function(){btn.textContent='Copied';setTimeout(function(){btn.textContent='Copy';},1400);});});});
+  var graphBtns=document.querySelectorAll('.graph-toolbar button'),nodes=document.querySelectorAll('#jointGraph .node');graphBtns.forEach(function(btn){btn.addEventListener('click',function(){graphBtns.forEach(function(b){b.classList.remove('active');});btn.classList.add('active');var view=btn.dataset.view;nodes.forEach(function(n){var kind=n.dataset.kind;n.classList.toggle('dim',(view==='forward'&&kind==='b')||(view==='backward'&&kind==='f'));});});});
+  var range=document.getElementById('cutRange');
+  var states=[
+    {label:'save s + u',save:2,redo:0,boundary:'s, u',s:'save',u:'save',text:'Lowest recompute; highest saved-activation footprint in this toy chain.'},
+    {label:'save s',save:1,redo:1,boundary:'s',s:'save',u:'recompute',text:'Recompute sin(s) in backward; one fewer value crosses the boundary.'},
+    {label:'recompute s + u',save:0,redo:2,boundary:'a, b',s:'recompute',u:'recompute',text:'Smallest activation set, but backward repeats add and sin. Inputs still remain available.'}
+  ];
+  function renderCut(){var x=states[+range.value],s=document.getElementById('cutS'),u=document.getElementById('cutU');document.getElementById('cutLabel').textContent=x.label;document.getElementById('saveCount').textContent=x.save;document.getElementById('redoCount').textContent=x.redo;document.getElementById('boundaryText').textContent=x.boundary;document.getElementById('tradeText').textContent=x.text;[s,u].forEach(function(el){el.classList.remove('save','recompute');});s.classList.add(x.s);u.classList.add(x.u);s.textContent='s · '+(x.s==='save'?'saved':'redo');u.textContent='u · '+(x.u==='save'?'saved':'redo');}
+  range.addEventListener('input',renderCut);renderCut();
+  document.querySelectorAll('.quiz-q').forEach(function(q){q.addEventListener('click',function(){q.parentElement.classList.toggle('open');});});
+})();
+</script>
+</body>
+</html>
