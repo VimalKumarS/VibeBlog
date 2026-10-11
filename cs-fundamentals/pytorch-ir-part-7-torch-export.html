@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>PyTorch IR Part 7 — torch.export</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Literata:opsz,wght@7..72,650;7..72,760&display=swap');
+    :root {
+      color-scheme: light dark;
+      --paper:#f4f6f5; --panel:#ffffff; --ink:#172129; --muted:#56636b; --faint:#e2e7e5; --line:#c9d1ce;
+      --nav:#13242a; --navink:#eef7f5; --cyan:#007c83; --cyan2:#d9f0ee; --orange:#c75c16; --orange2:#ffe7d5;
+      --green:#257b57; --green2:#dff1e7; --red:#ae3c32; --red2:#f8dedb; --yellow:#a36f00; --yellow2:#f7ebc8;
+      --code:#102127; --codeink:#e7f3ef; --shadow:0 14px 38px rgba(20,34,39,.09);
+      --radius:14px; --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Consolas,monospace; --sans:'IBM Plex Sans',sans-serif; --serif:'Literata',serif;
+    }
+    @media (prefers-color-scheme:dark){
+      :root{--paper:#0e1518;--panel:#152024;--ink:#e7efec;--muted:#a9b5b2;--faint:#223035;--line:#34454a;--nav:#091013;--navink:#ecf6f3;--cyan:#4fc7c7;--cyan2:#153f40;--orange:#ff9b5a;--orange2:#4a2c1a;--green:#62c995;--green2:#183a29;--red:#ff8175;--red2:#482522;--yellow:#efc45a;--yellow2:#41351a;--code:#081014;--codeink:#dcebe6;--shadow:0 16px 42px rgba(0,0,0,.26)}
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.56}
+    a{color:var(--cyan);text-decoration-thickness:1.5px;text-underline-offset:3px} button,select{font:inherit} code{font-family:var(--mono)}
+    .layout{display:grid;grid-template-columns:280px minmax(0,1fr);min-height:100vh}
+    .rail{position:sticky;top:0;height:100vh;background:var(--nav);color:var(--navink);padding:25px 20px 22px;overflow:auto}
+    .rail .series{font:600 11px/1.3 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:#85d9d2;margin-bottom:7px}
+    .rail h2{font:650 21px/1.2 var(--serif);margin:0 0 20px;color:#fff}
+    .meter{height:3px;background:#304348;margin:0 0 22px}.meter span{display:block;height:100%;width:0;background:#5ed4ca;transition:width .18s}
+    .rail nav{display:grid;gap:2px}.rail a{display:grid;grid-template-columns:25px 1fr;gap:6px;align-items:start;color:#b8c9c6;text-decoration:none;padding:7px 8px;border-radius:7px;font-size:13px;line-height:1.25}.rail a:hover,.rail a.active{background:#21373c;color:#fff}.rail a b{font:500 10px/1.6 var(--mono);color:#6fb7b2}.rail .legend{font-size:11px;color:#829793;border-top:1px solid #2b3d42;padding-top:14px;margin-top:18px}
+    .mobile-jump{display:none;position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(10px);padding:10px 14px;border-bottom:1px solid var(--line)}
+    .mobile-jump select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+    main{min-width:0}.hero{padding:72px clamp(24px,6vw,86px) 54px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,var(--panel) 0%,var(--paper) 74%);position:relative;overflow:hidden}
+    .hero:after{content:'EXPORT';position:absolute;right:-18px;bottom:-52px;font:700 clamp(90px,16vw,220px)/1 var(--mono);letter-spacing:-.08em;color:color-mix(in srgb,var(--cyan) 7%,transparent);pointer-events:none}
+    .breadcrumb{font:600 12px/1 var(--mono);color:var(--orange);letter-spacing:.08em;text-transform:uppercase}.hero h1{font:760 clamp(38px,6vw,80px)/.99 var(--serif);max-width:900px;margin:18px 0 22px;letter-spacing:-.04em}.hero .lede{font-size:clamp(18px,2vw,23px);max-width:790px;color:var(--muted);margin:0 0 30px}.hero .contract{display:flex;flex-wrap:wrap;gap:8px;position:relative;z-index:2}.chip{font:500 12px/1 var(--mono);padding:9px 11px;background:var(--cyan2);color:var(--cyan);border-radius:6px}
+    .content{max-width:1180px;padding:24px clamp(20px,5vw,72px) 100px}.section{scroll-margin-top:24px;padding:58px 0;border-bottom:1px solid var(--line)}.section:last-child{border:0}.kicker{font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--orange);margin-bottom:10px}.section h2{font:650 clamp(29px,4vw,46px)/1.08 var(--serif);letter-spacing:-.03em;margin:0 0 15px}.section>.intro{font-size:18px;color:var(--muted);max-width:780px;margin:0 0 34px}.section h3{font:700 20px/1.2 var(--sans);margin:30px 0 12px}.section h4{font:700 15px/1.2 var(--sans);margin:20px 0 8px}.small{font-size:13px;color:var(--muted)}
+    .callout{display:grid;grid-template-columns:auto 1fr;gap:14px;padding:17px 18px;margin:20px 0;background:var(--cyan2);border-radius:10px}.callout .mark{font:700 15px var(--mono);color:var(--cyan)}.callout strong{display:block;margin-bottom:3px}.callout.warn{background:var(--yellow2)}.callout.warn .mark{color:var(--yellow)}.callout.danger{background:var(--red2)}.callout.danger .mark{color:var(--red)}
+    .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:21px;box-shadow:var(--shadow)}.card h3,.card h4{margin-top:0}.card p:last-child{margin-bottom:0}.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--paper);font:600 12px var(--mono);margin-bottom:13px}
+    .pipe{display:flex;align-items:stretch;gap:0;margin:30px 0;overflow:hidden}.stage{position:relative;flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);padding:17px 18px 16px;margin-left:-1px}.stage:first-child{margin-left:0;border-radius:12px 0 0 12px}.stage:last-child{border-radius:0 12px 12px 0}.stage:after{content:'›';position:absolute;right:-10px;top:50%;transform:translateY(-50%);z-index:2;width:20px;height:28px;background:var(--cyan);color:white;text-align:center;font:500 22px/26px var(--sans);border-radius:10px}.stage:last-child:after{display:none}.stage b{display:block;font-size:14px}.stage span{display:block;font:11px/1.35 var(--mono);color:var(--muted);margin-top:6px}.stage.hot{background:var(--cyan2)}
+    pre{position:relative;margin:14px 0 22px;background:var(--code);color:var(--codeink);border-radius:11px;padding:19px 52px 19px 19px;overflow:hidden;font:12.5px/1.62 var(--mono);tab-size:2;white-space:pre-wrap;overflow-wrap:anywhere}.copy{position:absolute;right:9px;top:9px;border:1px solid #35515a;background:#152c32;color:#aee9e1;border-radius:6px;padding:5px 7px;font:500 10px var(--mono);cursor:pointer}.copy.ok{color:#fff;background:#21604a}.tok-k{color:#ffb477}.tok-f{color:#72ddd1}.tok-c{color:#829c9a}.tok-s{color:#e6d57a}
+    .anatomy{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(260px,.95fr);gap:18px;align-items:start}.anatomy .stack{display:grid;gap:10px}.slice{background:var(--panel);border:1px solid var(--line);padding:15px 17px;border-radius:9px;display:grid;grid-template-columns:118px 1fr;gap:14px}.slice b{font:600 12px var(--mono);color:var(--cyan)}.slice p{margin:0;font-size:14px;color:var(--muted)}
+    .compare{display:grid;grid-template-columns:1fr 1fr;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}.mode{padding:24px}.mode+ .mode{border-left:1px solid var(--line)}.mode h3{margin:0 0 5px}.tag{display:inline-block;font:600 10px var(--mono);padding:4px 6px;border-radius:4px;background:var(--faint);color:var(--muted)}.good{color:var(--green)}.bad{color:var(--red)}.mode ul{padding-left:20px;margin-bottom:0}.mode li{margin:7px 0}
+    .tabs{margin:26px 0}.tablist{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}.tablist button{border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:9px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}.tablist button[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}.tabpanel{display:none}.tabpanel.active{display:block}.tabpanel .card{box-shadow:none}
+    .trace{display:grid;grid-template-columns:140px 1fr;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}.trace .left{background:var(--nav);color:var(--navink);padding:17px;font:600 12px/1.4 var(--mono)}.trace .right{background:var(--panel);padding:17px}.trace .right p{margin:0;color:var(--muted)}
+    .guardmap{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;margin:24px 0}.guardmap .well{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}.guardmap .arrow{font:600 24px var(--mono);color:var(--orange)}
+    .sim{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow)}.sim-grid{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:22px;align-items:end}.control label{display:flex;justify-content:space-between;font:600 12px var(--mono);margin-bottom:8px}.control input{width:100%;accent-color:var(--cyan)}.verdict{border-radius:9px;padding:14px;background:var(--green2);color:var(--green);font:600 13px/1.45 var(--mono)}.verdict.fail{background:var(--red2);color:var(--red)}.asserts{margin:15px 0 0;padding:0;list-style:none;display:grid;gap:6px}.asserts li{font:12px var(--mono);padding:8px 10px;border-radius:6px;background:var(--faint)}.asserts li.pass:before{content:'✓ ';color:var(--green)}.asserts li.fail:before{content:'✕ ';color:var(--red)}
+    .contract-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}.contract-table th,.contract-table td{text-align:left;padding:13px 15px;border-bottom:1px solid var(--line);vertical-align:top}.contract-table th{font:600 11px var(--mono);color:var(--muted);background:var(--faint)}.contract-table td{font-size:14px}.contract-table tr:last-child td{border-bottom:0}.contract-table td:first-child{font-family:var(--mono);color:var(--cyan);white-space:nowrap}
+    .decision{display:grid;grid-template-columns:220px 1fr;gap:20px}.decision .choices{display:grid;gap:8px}.decision button{text-align:left;border:1px solid var(--line);background:var(--panel);padding:13px;border-radius:8px;color:var(--ink);cursor:pointer}.decision button.active{background:var(--cyan2);border-color:var(--cyan);color:var(--cyan)}.decision .answer{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}.answer .route{font:600 13px var(--mono);color:var(--orange);margin-bottom:10px}.answer h3{margin-top:0}.answer ol{padding-left:20px}.answer li{margin:8px 0}
+    details{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:9px 0;padding:0 16px}summary{cursor:pointer;font-weight:700;padding:15px 0}details>div{padding:0 0 17px;color:var(--muted)}
+    .check{display:grid;gap:10px}.q{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:17px}.q p{font-weight:600;margin:0 0 11px}.answers{display:flex;flex-wrap:wrap;gap:7px}.answers button{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:7px;padding:8px 10px;cursor:pointer}.answers button.correct{background:var(--green2);border-color:var(--green);color:var(--green)}.answers button.wrong{background:var(--red2);border-color:var(--red);color:var(--red)}.explain{display:none;font-size:13px;color:var(--muted);margin-top:10px}.explain.show{display:block}
+    .sources{display:grid;gap:10px}.source{display:grid;grid-template-columns:36px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}.source:last-child{border:0}.source .snum{font:600 11px var(--mono);color:var(--orange)}.source a{font-weight:600}.source p{font-size:13px;color:var(--muted);margin:3px 0 0}
+    footer{padding:25px 0 0;color:var(--muted);font-size:12px}
+    @media (max-width:900px){.layout{display:block}.rail{display:none}.mobile-jump{display:block}.content{padding-top:0}.hero{padding-top:52px}.grid3{grid-template-columns:1fr 1fr}.anatomy{grid-template-columns:1fr}.sim-grid{grid-template-columns:1fr 1fr}.verdict{grid-column:1/-1}.decision{grid-template-columns:1fr}.decision .choices{grid-template-columns:repeat(4,1fr)}.decision button{text-align:center}}
+    @media (max-width:640px){.hero{padding:42px 20px}.hero h1{font-size:43px}.content{padding-left:15px;padding-right:15px}.section{padding:42px 0}.grid2,.grid3,.compare{grid-template-columns:1fr}.mode+.mode{border-left:0;border-top:1px solid var(--line)}.pipe{display:grid;gap:8px}.stage{margin:0!important;border-radius:9px!important}.stage:after{content:'⌄';right:50%;top:auto;bottom:-14px;transform:translateX(50%);height:20px;line-height:16px}.guardmap{grid-template-columns:1fr}.guardmap .arrow{transform:rotate(90deg);text-align:center}.sim-grid{grid-template-columns:1fr}.verdict{grid-column:auto}.slice{grid-template-columns:1fr;gap:4px}.trace{grid-template-columns:1fr}.decision .choices{grid-template-columns:1fr 1fr}.contract-table,.contract-table tbody,.contract-table tr,.contract-table th,.contract-table td{display:block}.contract-table thead{display:none}.contract-table tr{padding:12px;border-bottom:1px solid var(--line)}.contract-table td{border:0;padding:3px 0}.contract-table td:first-child{white-space:normal;font-weight:600}.source{grid-template-columns:28px 1fr}}
+    @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.meter span{transition:none}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="rail" aria-label="Guide navigation">
+    <div class="series">PyTorch IR · Part 7</div>
+    <h2>From research code to a deployable contract</h2>
+    <div class="meter" aria-hidden="true"><span id="progress"></span></div>
+    <nav id="nav">
+      <a href="#mental"><b>01</b><span>Mental model</span></a>
+      <a href="#pipeline"><b>02</b><span>Capture pipeline</span></a>
+      <a href="#anatomy"><b>03</b><span>ExportedProgram anatomy</span></a>
+      <a href="#worked"><b>04</b><span>Worked export</span></a>
+      <a href="#modes"><b>05</b><span>Strict vs non-strict</span></a>
+      <a href="#shapes"><b>06</b><span>Dynamic shapes</span></a>
+      <a href="#guards"><b>07</b><span>Guards → asserts</span></a>
+      <a href="#mutation"><b>08</b><span>State & mutation</span></a>
+      <a href="#transforms"><b>09</b><span>Transform safely</span></a>
+      <a href="#deploy"><b>10</b><span>Deployment paths</span></a>
+      <a href="#failures"><b>11</b><span>Failure lab</span></a>
+      <a href="#recipe"><b>12</b><span>Production recipe</span></a>
+      <a href="#check"><b>13</b><span>Knowledge check</span></a>
+      <a href="#sources"><b>14</b><span>Sources</span></a>
+    </nav>
+    <div class="legend">Read top to bottom once. Then return to the simulators and failure lab while exporting your own model.</div>
+  </aside>
+
+  <main>
+    <div class="mobile-jump"><label><span class="small">Jump to section</span><select id="jump"><option value="">Choose…</option><option value="mental">Mental model</option><option value="pipeline">Capture pipeline</option><option value="anatomy">ExportedProgram anatomy</option><option value="worked">Worked export</option><option value="modes">Strict vs non-strict</option><option value="shapes">Dynamic shapes</option><option value="guards">Guards → asserts</option><option value="mutation">State & mutation</option><option value="transforms">Transform safely</option><option value="deploy">Deployment paths</option><option value="failures">Failure lab</option><option value="recipe">Production recipe</option><option value="check">Knowledge check</option><option value="sources">Sources</option></select></label></div>
+
+    <header class="hero">
+      <div class="breadcrumb">PyTorch IR · beginner → production</div>
+      <h1>The contract between Python and production</h1>
+      <p class="lede"><code>torch.export</code> freezes the tensor computation you authored in Python into a self-contained, inspectable program—with explicit inputs, state, shape rules, and failure boundaries that a downstream compiler can trust.</p>
+      <div class="contract"><span class="chip">AOT capture</span><span class="chip">functional ATen graph</span><span class="chip">symbolic shapes</span><span class="chip">no graph breaks</span><span class="chip">deployment handoff</span></div>
+    </header>
+
+    <div class="content">
+      <section class="section" id="mental">
+        <div class="kicker">01 · Mental model</div>
+        <h2>Export is a proof obligation, not “save model”</h2>
+        <p class="intro">A Python module is open-ended: it can inspect globals, mutate objects, read files, branch on arbitrary values, or invoke unsupported libraries. A deployment runtime needs the opposite—a finite program with a stable interface. Export closes that gap.</p>
+        <div class="grid3">
+          <div class="card"><span class="num">1</span><h3>Observe</h3><p>Run or symbolically analyze the module with representative inputs. Record tensor operations and shape relationships.</p></div>
+          <div class="card"><span class="num">2</span><h3>Prove</h3><p>Show that the captured graph represents every input allowed by the declared constraints—not just the example tensors.</p></div>
+          <div class="card"><span class="num">3</span><h3>Package</h3><p>Bundle graph, parameters, buffers, constants, signature, range constraints, and verification metadata into one <code>ExportedProgram</code>.</p></div>
+        </div>
+        <div class="callout"><div class="mark">KEY</div><div><strong>Example inputs are evidence, not the entire contract.</strong>They choose dtypes, devices, ranks, container structure, and default-static sizes. <code>dynamic_shapes</code> widens selected dimensions; export must prove the graph remains valid throughout those ranges.</div></div>
+        <table class="contract-table">
+          <thead><tr><th>Tool</th><th>When capture happens</th><th>Python allowed at runtime?</th><th>Graph-break behavior</th><th>Best mental model</th></tr></thead>
+          <tbody>
+            <tr><td>torch.compile</td><td>JIT, usually first call</td><td>Yes</td><td>May split and resume in Python</td><td>Optimize this Python program while it runs</td></tr>
+            <tr><td>torch.export</td><td>AOT, before deployment</td><td>Not required by the graph consumer</td><td>Fails; the exported region must be whole</td><td>Produce a portable graph contract</td></tr>
+            <tr><td>TorchScript</td><td>AOT scripting/tracing</td><td>No for runtime</td><td>N/A; separate legacy compiler stack</td><td>Older Python-subset deployment path</td></tr>
+            <tr><td>ONNX export</td><td>AOT translation</td><td>No</td><td>Exporter-dependent</td><td>Translate into an ecosystem-neutral operator IR</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" id="pipeline">
+        <div class="kicker">02 · Capture pipeline</div>
+        <h2>What actually happens at <code>export(...)</code></h2>
+        <p class="intro">Think of capture as progressive removal of Python semantics. Each stage converts implicit behavior into explicit graph structure or rejects it.</p>
+        <div class="pipe" aria-label="Export pipeline">
+          <div class="stage"><b>Python module</b><span>objects · methods · control flow</span></div>
+          <div class="stage hot"><b>Graph capture</b><span>Dynamo or ProxyTensor</span></div>
+          <div class="stage"><b>Functionalization</b><span>make mutation explicit</span></div>
+          <div class="stage"><b>ATen IR</b><span>operator overloads</span></div>
+          <div class="stage"><b>Contract</b><span>signature · constraints · state</span></div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h3>During capture</h3><ol><li>Flatten positional/keyword arguments using pytree structure.</li><li>Replace real tensor reasoning with fake/symbolic tensor metadata where possible.</li><li>Resolve Python decisions that can be safely specialized.</li><li>Record ATen operations and higher-order operators such as <code>cond</code>.</li><li>Collect assumptions required for the trace to stay sound.</li></ol></div>
+          <div class="card"><h3>Before return</h3><ol><li>Lift parameters, buffers, constants, and mutation effects into the explicit signature.</li><li>Attach shape/dtype/device metadata to graph nodes.</li><li>Store symbolic-dimension ranges and relations.</li><li>Run verifier checks against the export dialect.</li><li>Return an object ready for transformation or serialization.</li></ol></div>
+        </div>
+        <div class="callout warn"><div class="mark">AOT</div><div><strong>No “we’ll compile another graph later.”</strong><code>torch.compile</code> can guard one specialization and recompile when it misses. Export has no Python capture process in production, so it must either cover the promised input space or fail now.</div></div>
+      </section>
+
+      <section class="section" id="anatomy">
+        <div class="kicker">03 · ExportedProgram anatomy</div>
+        <h2>More than an FX graph</h2>
+        <p class="intro">The graph says what to compute. The surrounding package says how to call it, which values are model state, what shapes are legal, and whether later transformations preserved the contract.</p>
+        <div class="anatomy">
+          <div>
+<pre><button class="copy">copy</button><span class="tok-k">ep</span> = torch.export.export(model, (x,), dynamic_shapes=spec)
+
+print(ep.graph_module.code)       <span class="tok-c"># tensor program</span>
+print(ep.graph_signature)         <span class="tok-c"># logical I/O roles</span>
+print(ep.state_dict.keys())       <span class="tok-c"># parameters + buffers</span>
+print(ep.range_constraints)       <span class="tok-c"># symbolic bounds</span>
+print(ep.module_call_graph)       <span class="tok-c"># preserved hierarchy metadata</span>
+
+ep.validate()                     <span class="tok-c"># dialect + consistency checks</span>
+runnable = ep.module()            <span class="tok-c"># self-contained GraphModule</span></pre>
+          </div>
+          <div class="stack">
+            <div class="slice"><b>graph_module</b><p>An FX <code>GraphModule</code> whose calls target explicit operator overloads such as <code>torch.ops.aten.add.Tensor</code>.</p></div>
+            <div class="slice"><b>graph_signature</b><p>Maps flat graph inputs/outputs to semantic roles: user input, parameter, buffer, constant, mutation, token, user output.</p></div>
+            <div class="slice"><b>state_dict</b><p>The actual parameter and persistent-buffer tensors separated from graph code.</p></div>
+            <div class="slice"><b>constraints</b><p>Legal ranges and relationships for symbolic integers that appear in shapes and indexing.</p></div>
+            <div class="slice"><b>metadata</b><p>Node value metadata, stack traces, source ranges, and module-call information used by compilers and debuggers.</p></div>
+            <div class="slice"><b>verifiers</b><p>Dialect-specific invariants checked when the program is created, transformed, or loaded.</p></div>
+          </div>
+        </div>
+        <h3>Why the raw graph looks “too functional”</h3>
+        <p>Downstream compilers do not want hidden object state. In the internal graph, parameters and buffers are typically explicit placeholders. The graph signature tells the runtime which placeholders should be filled from <code>state_dict</code>. Calling <code>ep.module()</code> binds those values back into a convenient module-shaped interface.</p>
+        <div class="trace"><div class="left">LOGICAL CALL<br>module(x)</div><div class="right"><p><strong>Adapter work:</strong> flatten <code>x</code> → obtain parameters/buffers → call flat graph → apply recorded mutations → unflatten user outputs.</p></div></div>
+      </section>
+
+      <section class="section" id="worked">
+        <div class="kicker">04 · Worked export</div>
+        <h2>From a gated residual block to ATen IR</h2>
+        <p class="intro">The example has model state, a dynamic batch, a static feature width, broadcasting, activation, and a residual add—enough structure to expose the full contract.</p>
+        <div class="tabs" data-tabs>
+          <div class="tablist" role="tablist"><button role="tab" aria-selected="true" data-tab="source">1 · Source</button><button role="tab" aria-selected="false" data-tab="capture">2 · Export</button><button role="tab" aria-selected="false" data-tab="ir">3 · IR</button><button role="tab" aria-selected="false" data-tab="read">4 · Read it</button></div>
+          <div class="tabpanel active" data-panel="source">
+<pre><button class="copy">copy</button><span class="tok-k">class</span> GatedResidual(torch.nn.Module):
+    <span class="tok-k">def</span> __init__(self, width=64):
+        super().__init__()
+        self.proj = torch.nn.Linear(width, width)
+        self.register_buffer(<span class="tok-s">"temperature"</span>, torch.tensor(2.0))
+
+    <span class="tok-k">def</span> forward(self, x):
+        gate = torch.sigmoid(self.proj(x) / self.temperature)
+        return x + gate * x</pre>
+          </div>
+          <div class="tabpanel" data-panel="capture">
+<pre><button class="copy">copy</button>model = GatedResidual().eval()
+example = (torch.randn(8, 64),)
+
+B = torch.export.Dim(<span class="tok-s">"batch"</span>, min=1, max=128)
+ep = torch.export.export(
+    model,
+    example,
+    dynamic_shapes={<span class="tok-s">"x"</span>: {0: B}},
+    strict=True,
+)
+
+<span class="tok-k">assert</span> torch.allclose(
+    model(example[0]), ep.module()(example[0])
+)</pre>
+          </div>
+          <div class="tabpanel" data-panel="ir">
+<pre><span class="tok-c"># Simplified for readability; exact names vary by PyTorch version.</span>
+def forward(p_proj_weight, p_proj_bias, b_temperature, x):
+    linear = torch.ops.aten.linear.default(x, p_proj_weight, p_proj_bias)
+    div    = torch.ops.aten.div.Tensor(linear, b_temperature)
+    gate   = torch.ops.aten.sigmoid.default(div)
+    mul    = torch.ops.aten.mul.Tensor(gate, x)
+    add    = torch.ops.aten.add.Tensor(x, mul)
+    return (add,)
+
+<span class="tok-c"># graph signature classifies p_*, b_*, x, and add</span>
+<span class="tok-c"># range constraints include: 1 ≤ batch ≤ 128</span></pre>
+          </div>
+          <div class="tabpanel" data-panel="read">
+            <div class="card"><ol><li><strong>Object access disappears.</strong> <code>self.proj</code> is no longer a Python object lookup.</li><li><strong>Module calls decompose.</strong> <code>nn.Linear</code> becomes an ATen linear operator with weight and bias inputs.</li><li><strong>State is classified.</strong> The weight/bias are parameters; temperature is a buffer; <code>x</code> is the user input.</li><li><strong>The batch is symbolic.</strong> Node metadata can carry a shape like <code>[s0, 64]</code>, while <code>s0</code> is bounded.</li><li><strong>The width stays static.</strong> Inputs with width other than 64 violate the contract.</li></ol></div>
+          </div>
+        </div>
+        <div class="callout"><div class="mark">TRY</div><div><strong>Inspect three views, not one.</strong><code>print(ep)</code> gives a readable package summary; <code>ep.graph.print_tabular()</code> shows node flow; <code>node.meta["val"]</code> exposes inferred shapes/dtypes.</div></div>
+      </section>
+
+      <section class="section" id="modes">
+        <div class="kicker">05 · Strict vs non-strict</div>
+        <h2>Two capture mechanisms, one contract target</h2>
+        <p class="intro">The choice changes how Python is analyzed during capture. It does not turn export into a best-effort tracer, and it does not permit graph breaks.</p>
+        <div class="compare">
+          <div class="mode"><span class="tag">DEFAULT</span><h3>Strict <code>strict=True</code></h3><p>TorchDynamo symbolically interprets Python bytecode and records conditions needed for correctness.</p><ul><li class="good">Stronger analysis of Python behavior</li><li class="good">Catches unsupported constructs early</li><li class="good">Best first choice for production</li><li class="bad">Smaller supported Python surface</li><li class="bad">Errors on many custom context managers or opaque calls</li></ul></div>
+          <div class="mode"><span class="tag">ESCAPE HATCH</span><h3>Non-strict <code>strict=False</code></h3><p>The ordinary Python interpreter runs with ProxyTensors; tensor operations are recorded as they execute.</p><ul><li class="good">Supports more benign Python scaffolding</li><li class="good">Often unblocks third-party modules</li><li class="bad">Python values/control may specialize silently</li><li class="bad">Capture executes side effects in Python</li><li class="bad">Requires stronger differential testing</li></ul></div>
+        </div>
+        <h3>A diagnostic example</h3>
+<pre><button class="copy">copy</button><span class="tok-k">class</span> Wrapper(torch.nn.Module):
+    <span class="tok-k">def</span> forward(self, x):
+        with harmless_logging_context():  <span class="tok-c"># no tensor semantic effect</span>
+            return x.sin() + x.cos()
+
+<span class="tok-c"># strict=True may reject the unsupported context manager.</span>
+<span class="tok-c"># strict=False executes it and records only tensor operations.</span>
+ep = torch.export.export(Wrapper(), (torch.ones(3, 3),), strict=False)</pre>
+        <div class="callout danger"><div class="mark">RISK</div><div><strong>“It exported” is not proof that Python behavior was preserved.</strong>If the context manager changes tensor behavior indirectly, reads data, or mutates state, non-strict capture can record only the path observed during export. Compare outputs across boundary cases and audit the graph.</div></div>
+        <h3>Practical escalation ladder</h3>
+        <div class="grid3"><div class="card"><b>1 · Keep strict</b><p>Rewrite obvious graph breaks, use supported control-flow operators, and move preprocessing out of <code>forward</code>.</p></div><div class="card"><b>2 · Isolate</b><p>Export the tensor-only core while keeping tokenization, logging, I/O, and business logic in the host application.</p></div><div class="card"><b>3 · Use non-strict</b><p>Only when unsupported Python is operational scaffolding—not part of numerical semantics—and add parity tests.</p></div></div>
+      </section>
+
+      <section class="section" id="shapes">
+        <div class="kicker">06 · Dynamic shapes</div>
+        <h2>Static by default, dynamic by declaration</h2>
+        <p class="intro">A dynamic dimension is a symbolic integer with bounds and relationships. It is not “accept anything.” Precise constraints create a larger legal input set without throwing away compiler knowledge.</p>
+<pre><button class="copy">copy</button>B = torch.export.Dim(<span class="tok-s">"batch"</span>, min=1, max=32)
+S = torch.export.Dim(<span class="tok-s">"seq"</span>,   min=8, max=2048)
+
+example_ids  = torch.randint(0, 32000, (2, 128))
+example_mask = torch.ones(2, 128, dtype=torch.bool)
+
+spec = {
+    <span class="tok-s">"input_ids"</span>:     {0: B, 1: S},
+    <span class="tok-s">"attention_mask"</span>:{0: B, 1: S},
+}
+ep = torch.export.export(model, (example_ids, example_mask),
+                         dynamic_shapes=spec)</pre>
+        <div class="grid2">
+          <div class="card"><h3>What the shared symbols say</h3><p>Both tensors share the same <code>B</code> and <code>S</code>, so their batch and sequence lengths must match. Reusing the same <code>Dim</code> expresses equality.</p></div>
+          <div class="card"><h3>What remains specialized</h3><p>Dtype, rank, container structure, and every dimension you did not mark dynamic remain tied to the export contract.</p></div>
+        </div>
+        <h3>Derived dimensions</h3>
+        <p>Relations can be affine. If an internal or second input dimension is structurally twice another, represent it as <code>2 * S</code> rather than declaring an unrelated symbol. This lets export and later compilers preserve the relationship.</p>
+<pre><button class="copy">copy</button>S = torch.export.Dim(<span class="tok-s">"tokens"</span>, min=4, max=512)
+dynamic_shapes = {
+    <span class="tok-s">"x"</span>:      {1: S},
+    <span class="tok-s">"packed"</span>: {1: 2 * S},
+}</pre>
+        <div class="callout warn"><div class="mark">DEBUG</div><div><strong>ConstraintViolationError is often a suggested-spec generator.</strong>The error explains which symbolic assumption your code introduced and may suggest a corrected <code>Dim</code> relation or tighter bound. Read it as a proof failure, not a random tracing failure.</div></div>
+      </section>
+
+      <section class="section" id="guards">
+        <div class="kicker">07 · Guards become runtime boundaries</div>
+        <h2>From “this was true while tracing” to “this must be true when running”</h2>
+        <p class="intro">Capture encounters assumptions. Export must classify each one: prove it from declared constraints, specialize it into the contract, encode it as a runtime check, or reject the program.</p>
+        <div class="guardmap">
+          <div class="well"><h3>Capture-time fact</h3><p><code>x.shape[1] % 8 == 0</code><br><code>x.shape[0] ≤ 32</code><br><code>mask.shape == x.shape[:2]</code></p></div>
+          <div class="arrow">→</div>
+          <div class="well"><h3>Export decision</h3><p><strong>Proved:</strong> omit redundant check<br><strong>Input contract:</strong> store shape constraints<br><strong>Deferred:</strong> emit graph assertion<br><strong>Unprovable:</strong> fail export</p></div>
+        </div>
+        <div class="sim">
+          <h3 style="margin-top:0">Runtime contract simulator</h3>
+          <p class="small">Contract: <code>1 ≤ batch ≤ 32</code>, <code>8 ≤ seq ≤ 2048</code>, and <code>seq % 8 == 0</code>.</p>
+          <div class="sim-grid"><div class="control"><label><span>batch</span><output id="bout">4</output></label><input id="batch" type="range" min="0" max="40" value="4"></div><div class="control"><label><span>sequence</span><output id="sout">128</output></label><input id="seq" type="range" min="1" max="2064" value="128"></div><div class="verdict" id="verdict">ACCEPT · all assertions hold</div></div>
+          <ul class="asserts"><li id="a1"></li><li id="a2"></li><li id="a3"></li></ul>
+        </div>
+        <h3>Explicit semantic checks with <code>torch._check</code></h3>
+<pre><button class="copy">copy</button><span class="tok-k">class</span> BlockedAttention(torch.nn.Module):
+    <span class="tok-k">def</span> forward(self, x):
+        torch._check(x.shape[1] % 8 == 0,
+                     <span class="tok-s">"sequence length must be block-aligned"</span>)
+        return attention_kernel(x)
+
+<span class="tok-c"># The condition is symbolic. If export cannot prove it for the</span>
+<span class="tok-c"># entire declared range, the assertion can remain in the graph.</span></pre>
+        <div class="grid2">
+          <div class="card"><h3>Input guards</h3><p>Rank, dtype, device, static sizes, dynamic bounds, and cross-input equalities are enforced at the exported module boundary. A bad input should fail before unsafe computation.</p></div>
+          <div class="card"><h3>Inline runtime asserts</h3><p>Checks involving symbolic or data-dependent values may appear as assertion operators/tokens in the graph when export supports deferring them. They remain part of execution.</p></div>
+        </div>
+        <div class="callout"><div class="mark">NUANCE</div><div><strong>Not every Dynamo guard is copied verbatim into the graph.</strong>Export re-expresses required facts through signature checks, symbolic range constraints, specialization, and graph assertions. The result is a deployment contract, not a raw guard dump.</div></div>
+      </section>
+
+      <section class="section" id="mutation">
+        <div class="kicker">08 · State & mutation</div>
+        <h2>Side effects become explicit dataflow</h2>
+        <p class="intro">A compiler cannot safely optimize a hidden write to module state. Export functionalizes many tensor mutations and records mutated buffers or user inputs in the output signature.</p>
+<pre><button class="copy">copy</button><span class="tok-k">class</span> Counter(torch.nn.Module):
+    <span class="tok-k">def</span> __init__(self):
+        super().__init__()
+        self.register_buffer(<span class="tok-s">"seen"</span>, torch.zeros(()))
+
+    <span class="tok-k">def</span> forward(self, x):
+        self.seen.add_(x.shape[0])
+        return x / self.seen.clamp_min(1)
+
+<span class="tok-c"># Conceptual flat return:</span>
+<span class="tok-c"># (updated_seen, user_output)</span>
+<span class="tok-c"># graph_signature says updated_seen mutates buffer "seen".</span></pre>
+        <div class="grid3"><div class="card"><h3>Parameters</h3><p>Read-only learned state for inference. Lifted into graph inputs and mapped back to named entries.</p></div><div class="card"><h3>Buffers</h3><p>Non-parameter state. Persistent buffers live in <code>state_dict</code>; mutations are represented explicitly.</p></div><div class="card"><h3>Constants</h3><p>Tensor constants or lifted custom objects needed by the graph but not user inputs.</p></div></div>
+        <div class="callout warn"><div class="mark">DESIGN</div><div><strong>Prefer an inference-pure boundary.</strong>Move metrics, caches, tokenization, random policy, and request bookkeeping outside the exported module. If state must evolve, make the update visible and test repeated calls—not just call one.</div></div>
+      </section>
+
+      <section class="section" id="transforms">
+        <div class="kicker">09 · Transform safely</div>
+        <h2>Rewrite the IR without dropping its contract</h2>
+        <p class="intro">An <code>ExportedProgram</code> is designed as a compiler handoff. Transformations must preserve graph-signature roles, symbolic constraints, and verifier invariants—not merely produce numerically plausible FX code.</p>
+        <div class="pipe"><div class="stage"><b>ExportedProgram</b><span>full ATen-ish dialect</span></div><div class="stage hot"><b>Decompose</b><span>remove composite ops</span></div><div class="stage"><b>Partition</b><span>choose backend regions</span></div><div class="stage"><b>Lower</b><span>backend IR / kernels</span></div><div class="stage"><b>Package</b><span>runtime artifact</span></div></div>
+<pre><button class="copy">copy</button><span class="tok-c"># Lower composite ops toward a smaller Core ATen set.</span>
+core_ep = ep.run_decompositions()
+core_ep.validate()
+
+<span class="tok-c"># Inspect every target your backend must support.</span>
+ops = sorted({str(n.target) for n in core_ep.graph.nodes
+              if n.op == <span class="tok-s">"call_function"</span>})
+print(*ops, sep=<span class="tok-s">"\n"</span>)
+
+<span class="tok-c"># Serialize the program contract—not arbitrary Python objects.</span>
+torch.export.save(core_ep, <span class="tok-s">"model.pt2"</span>)
+reloaded = torch.export.load(<span class="tok-s">"model.pt2"</span>)
+reloaded.validate()</pre>
+        <div class="grid2"><div class="card"><h3>Safe pattern</h3><p>Use export-aware decomposition/transform APIs, validate, re-run parity tests, and preserve source/shape metadata where possible.</p></div><div class="card"><h3>Risky pattern</h3><p>Pull out <code>graph_module</code>, mutate nodes freely, then assume the old signature and constraints still describe the new graph.</p></div></div>
+        <h3>Operator dialects</h3>
+        <table class="contract-table"><thead><tr><th>Level</th><th>What it contains</th><th>Why lower</th></tr></thead><tbody><tr><td>Functional ATen</td><td>Normalized tensor operators; mutation and aliasing made explicit.</td><td>A stable compiler-facing representation.</td></tr><tr><td>Core ATen</td><td>Smaller primitive operator subset after decomposition.</td><td>Reduce backend implementation surface.</td></tr><tr><td>Backend dialect</td><td>Inductor loop IR, ExecuTorch edge dialect, ONNX ops, or accelerator-specific ops.</td><td>Expose target-specific fusion, memory, layout, and code generation.</td></tr></tbody></table>
+      </section>
+
+      <section class="section" id="deploy">
+        <div class="kicker">10 · Deployment paths</div>
+        <h2>Export is the interchange point, not the final runtime</h2>
+        <p class="intro">Choose a path based on where inference runs and what operational artifact you need. The graph contract stays central, but packaging and compatibility guarantees differ.</p>
+        <div class="decision">
+          <div class="choices" id="deployChoices"><button class="active" data-choice="python">Python service</button><button data-choice="cpp">C++ / server</button><button data-choice="edge">Mobile / edge</button><button data-choice="onnx">Other runtimes</button></div>
+          <div class="answer" id="deployAnswer"></div>
+        </div>
+        <h3>The production chain</h3>
+        <div class="pipe"><div class="stage"><b>Author</b><span>nn.Module + tests</span></div><div class="stage"><b>Export</b><span>ExportedProgram</span></div><div class="stage"><b>Compile</b><span>target-specific lowering</span></div><div class="stage"><b>Package</b><span>.pt2 · .pte · ONNX</span></div><div class="stage hot"><b>Run</b><span>service · C++ · device</span></div></div>
+        <div class="callout warn"><div class="mark">OPS</div><div><strong>Shape contracts are capacity contracts.</strong>A declared maximum batch or sequence length affects compilation choices, memory planning, latency envelopes, and admission control. Version the constraints alongside weights and runtime binaries.</div></div>
+      </section>
+
+      <section class="section" id="failures">
+        <div class="kicker">11 · Failure lab</div>
+        <h2>Read errors by category</h2>
+        <p class="intro">Export failures are usually telling you which hidden Python or shape assumption could not be made portable. Classify first; patch second.</p>
+        <details open><summary>Data-dependent Python control flow</summary><div><p><strong>Symptom:</strong> branching on <code>if x.sum() &gt; 0</code> requires reading tensor data into Python.</p><p><strong>Fix:</strong> express tensor control flow with structured operators such as <code>torch.cond</code>, or move the branch outside the exported region. Both branches must satisfy output/metadata rules.</p></div></details>
+        <details><summary>Unexpected static specialization</summary><div><p><strong>Symptom:</strong> a second batch size fails although the math should support it.</p><p><strong>Fix:</strong> mark the dimension with <code>Dim</code>, reuse symbols for equality, then inspect <code>range_constraints</code>. Do not mark every dimension dynamic reflexively; dynamic freedom costs optimization information.</p></div></details>
+        <details><summary>ConstraintViolationError</summary><div><p><strong>Symptom:</strong> declared range says a symbol varies freely, but Python indexing or a branch requires a narrower range or relation.</p><p><strong>Fix:</strong> enable dynamic-shape logs, read generated suggestions, and decide whether to rewrite the model or tighten the public contract. Never copy a suggestion without checking it matches serving requirements.</p></div></details>
+        <details><summary>Unsupported Python in strict mode</summary><div><p><strong>Symptom:</strong> Dynamo reports an unsupported builtin, custom context manager, descriptor, or extension call.</p><p><strong>Fix:</strong> remove/isolate it first. Consider <code>strict=False</code> only when that code does not influence tensor semantics, then differential-test multiple inputs.</p></div></details>
+        <details><summary>Missing fake/meta implementation for a custom op</summary><div><p><strong>Symptom:</strong> capture cannot infer the custom operator’s output shape/dtype without executing a real kernel.</p><p><strong>Fix:</strong> define the custom op schema and register a fake implementation that computes output metadata from input metadata. Register backend kernels separately.</p></div></details>
+        <details><summary>Mutation, aliasing, or object side effects</summary><div><p><strong>Symptom:</strong> writes to global objects, Python lists, arbitrary attributes, or aliased tensors cannot be safely represented.</p><p><strong>Fix:</strong> return updated tensor state explicitly, use registered buffers, or keep the stateful shell outside the tensor core.</p></div></details>
+        <details><summary>Serialization/version mismatch</summary><div><p><strong>Symptom:</strong> a saved <code>.pt2</code> artifact fails to load under another PyTorch build or operator set.</p><p><strong>Fix:</strong> treat runtime, exporter, opset, custom-op libraries, device stack, and model artifact as one tested release unit. Keep the original checkpoint so you can re-export.</p></div></details>
+        <h3>Logging kit</h3>
+<pre><button class="copy">copy</button><span class="tok-c"># Run before the Python process starts.</span>
+TORCH_LOGS=<span class="tok-s">"+dynamo,+dynamic"</span> python export_model.py
+
+<span class="tok-c"># Inside your script:</span>
+print(ep)
+ep.graph.print_tabular()
+print(ep.graph_signature)
+print(ep.range_constraints)
+ep.validate()</pre>
+      </section>
+
+      <section class="section" id="recipe">
+        <div class="kicker">12 · Production recipe</div>
+        <h2>An end-to-end export checklist</h2>
+        <p class="intro">Treat export as an API release. The artifact is ready when its accepted input space, semantics, operator set, and runtime compatibility are all tested.</p>
+        <div class="grid2">
+          <div class="card"><span class="num">1</span><h3>Define the boundary</h3><ul><li>Set <code>eval()</code> and inference mode deliberately.</li><li>Move tokenization/I/O/request policy outside.</li><li>Document tensor names, dtypes, ranks, layouts, devices.</li><li>Decide whether state mutation is allowed.</li></ul></div>
+          <div class="card"><span class="num">2</span><h3>Design constraints</h3><ul><li>Pick realistic min/typical/max dimensions.</li><li>Reuse <code>Dim</code> objects for equality.</li><li>Encode derived affine dimensions.</li><li>Add semantic <code>torch._check</code> assertions.</li></ul></div>
+          <div class="card"><span class="num">3</span><h3>Capture strict first</h3><ul><li>Export representative inputs.</li><li>Classify every failure.</li><li>Audit graph, signature, state, constraints.</li><li>Use non-strict only with a written reason.</li></ul></div>
+          <div class="card"><span class="num">4</span><h3>Prove parity</h3><ul><li>Random inputs across the entire legal range.</li><li>Boundary cases at every min and max.</li><li>Expected failures just outside bounds.</li><li>Repeated calls for mutable state.</li></ul></div>
+          <div class="card"><span class="num">5</span><h3>Lower & package</h3><ul><li>Decompose to backend-supported ops.</li><li>Compile for exact target hardware.</li><li>Save manifests: versions, hashes, constraints.</li><li>Load in a clean runtime environment.</li></ul></div>
+          <div class="card"><span class="num">6</span><h3>Operate</h3><ul><li>Validate inputs before expensive execution.</li><li>Monitor contract violations separately.</li><li>Canary numerical drift and performance.</li><li>Keep rollback artifact and source checkpoint.</li></ul></div>
+        </div>
+        <h3>Minimal reproducible harness</h3>
+<pre><button class="copy">copy</button><span class="tok-k">def</span> export_and_check(model, example, dynamic_shapes, samples):
+    model = model.eval()
+    with torch.inference_mode():
+        ep = torch.export.export(model, example,
+                                 dynamic_shapes=dynamic_shapes,
+                                 strict=True)
+        ep.validate()
+        deployed = ep.module()
+        for args in samples:
+            eager = model(*args)
+            actual = deployed(*args)
+            torch.testing.assert_close(actual, eager)
+        torch.export.save(ep, <span class="tok-s">"model.pt2"</span>)
+        loaded = torch.export.load(<span class="tok-s">"model.pt2"</span>)
+        loaded.validate()
+        return loaded</pre>
+        <div class="callout"><div class="mark">DONE</div><div><strong>The artifact is not “the model.”</strong>It is one tested compilation of a model version, export code, input contract, operator set, weights, and target assumptions. Production reliability comes from versioning that whole tuple.</div></div>
+      </section>
+
+      <section class="section" id="check">
+        <div class="kicker">13 · Knowledge check</div>
+        <h2>Can you reason from the contract?</h2>
+        <p class="intro">Answer before revealing feedback. These are the distinctions that matter in design reviews and compiler interviews.</p>
+        <div class="check">
+          <div class="q" data-answer="b"><p>1. A <code>torch.compile</code> graph guard fails in production. What can happen that export cannot rely on?</p><div class="answers"><button data-v="a">The tensor is silently reshaped</button><button data-v="b">Python resumes and a new specialization may compile</button><button data-v="c">The state_dict is reloaded</button></div><div class="explain">Correct: JIT compilation can re-enter Python and compile another graph. An exported deployment artifact must reject or already cover the input.</div></div>
+          <div class="q" data-answer="c"><p>2. Two inputs must always share batch size. What is the clearest shape specification?</p><div class="answers"><button data-v="a">Two different Dim objects with same bounds</button><button data-v="b">Leave both static</button><button data-v="c">Reuse one Dim object on both dimensions</button></div><div class="explain">Correct: one shared symbol expresses equality directly; same numeric bounds alone do not.</div></div>
+          <div class="q" data-answer="a"><p>3. Strict export fails on a logging context manager. Your first move?</p><div class="answers"><button data-v="a">Remove/isolate the context manager from forward</button><button data-v="b">Always use strict=False</button><button data-v="c">Increase Dim.max</button></div><div class="explain">Correct: simplify the tensor boundary first. Non-strict is a deliberate fallback only after you establish the Python scaffolding has no tensor-semantic effect.</div></div>
+          <div class="q" data-answer="b"><p>4. Why inspect graph_signature as well as graph_module?</p><div class="answers"><button data-v="a">It stores CUDA kernels</button><button data-v="b">It assigns semantic roles to flat inputs/outputs</button><button data-v="c">It benchmarks each node</button></div><div class="explain">Correct: the signature says which placeholders are parameters, buffers, constants, or user inputs—and which outputs represent mutation.</div></div>
+          <div class="q" data-answer="c"><p>5. Which statement about dynamic shapes is accurate?</p><div class="answers"><button data-v="a">They disable all shape checks</button><button data-v="b">They permit arbitrary rank</button><button data-v="c">They create bounded symbolic dimensions and relations</button></div><div class="explain">Correct: dynamic means symbolic under a declared contract, not unconstrained.</div></div>
+        </div>
+      </section>
+
+      <section class="section" id="sources">
+        <div class="kicker">14 · Sources & next practice</div>
+        <h2>Read the contracts, then test them</h2>
+        <p class="intro">The explanations above synthesize official PyTorch documentation and tutorials. APIs evolve; check the docs for the version you ship with.</p>
+        <div class="sources">
+          <div class="source"><div class="snum">01</div><div><a href="https://docs.pytorch.org/docs/2.7/export.html" target="_blank" rel="noopener">torch.export documentation (PyTorch 2.7)</a><p>IR guarantees, ExportedProgram structure, strict/non-strict capture, dynamic shapes, serialization, limitations.</p></div></div>
+          <div class="source"><div class="snum">02</div><div><a href="https://docs.pytorch.org/tutorials/_sources/intermediate/torch_export_tutorial.rst.txt" target="_blank" rel="noopener">Official torch.export tutorial source</a><p>Worked capture patterns, graph-break differences, non-strict behavior, and control-flow examples.</p></div></div>
+          <div class="source"><div class="snum">03</div><div><a href="https://docs.pytorch.org/docs/2.5/export.html" target="_blank" rel="noopener">ExportedProgram API reference (PyTorch 2.5)</a><p>Program package fields, module conversion, decomposition, validation, and graph transformation APIs.</p></div></div>
+          <div class="source"><div class="snum">04</div><div><a href="https://docs.pytorch.org/docs/2.7/torch.compiler_aot_inductor.html" target="_blank" rel="noopener">AOTInductor deployment tutorial</a><p>Export → compile/package → C++ runtime path and dynamic batch example.</p></div></div>
+          <div class="source"><div class="snum">05</div><div><a href="https://docs.pytorch.org/tutorials/recipes/torch_export_aoti_python.html" target="_blank" rel="noopener">AOTInductor with Python runtime</a><p>Packaging an exported program as a compiled artifact and loading it from Python.</p></div></div>
+          <div class="source"><div class="snum">06</div><div><a href="https://docs.pytorch.org/tutorials/intermediate/torch_compile_tutorial.html?highlight=torch%20compile" target="_blank" rel="noopener">torch.compile tutorial</a><p>Contrast with JIT compilation, graph breaks, and Python-less deployment motivation.</p></div></div>
+        </div>
+        <h3>A three-session lab</h3>
+        <div class="grid3"><div class="card"><b>Session A · inspect</b><p>Export the gated block. Label every placeholder/output using the graph signature. Find symbolic shape metadata.</p></div><div class="card"><b>Session B · break</b><p>Add a data-dependent branch, unsupported Python, and an impossible dynamic range. Explain each failure before fixing it.</p></div><div class="card"><b>Session C · deploy</b><p>Decompose, save, load in a clean process, test boundary shapes, then feed the program to one real downstream runtime.</p></div></div>
+        <footer>Technical visual guide · Source review dated October 2026 · Example IR is intentionally simplified where PyTorch-generated names vary by release.</footer>
+      </section>
+    </div>
+  </main>
+</div>
+<script>
+(function(){
+  var links=[].slice.call(document.querySelectorAll('#nav a'));
+  var sections=links.map(function(a){return document.querySelector(a.getAttribute('href'));});
+  var progress=document.getElementById('progress');
+  function onScroll(){
+    var h=document.documentElement.scrollHeight-window.innerHeight;
+    progress.style.width=(h>0?Math.min(100,window.scrollY/h*100):0)+'%';
+    var current=sections[0];
+    sections.forEach(function(s){if(s && s.getBoundingClientRect().top<170)current=s;});
+    links.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+current.id);});
+  }
+  addEventListener('scroll',onScroll,{passive:true}); onScroll();
+  document.getElementById('jump').addEventListener('change',function(){if(this.value)document.getElementById(this.value).scrollIntoView();});
+
+  document.querySelectorAll('[data-tabs]').forEach(function(root){
+    root.querySelectorAll('[data-tab]').forEach(function(btn){btn.addEventListener('click',function(){
+      root.querySelectorAll('[data-tab]').forEach(function(b){b.setAttribute('aria-selected','false');});
+      root.querySelectorAll('[data-panel]').forEach(function(p){p.classList.remove('active');});
+      btn.setAttribute('aria-selected','true'); root.querySelector('[data-panel="'+btn.dataset.tab+'"]').classList.add('active');
+    });});
+  });
+
+  document.querySelectorAll('.copy').forEach(function(btn){btn.addEventListener('click',function(){
+    var text=btn.parentElement.innerText.replace(/^copy\s*/,'');
+    function done(){btn.textContent='copied';btn.classList.add('ok');setTimeout(function(){btn.textContent='copy';btn.classList.remove('ok');},1200)}
+    if(navigator.clipboard){navigator.clipboard.writeText(text).then(done);} else {var t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();done();}
+  });});
+
+  var batch=document.getElementById('batch'),seq=document.getElementById('seq');
+  function updateSim(){
+    var b=+batch.value,s=+seq.value; document.getElementById('bout').textContent=b;document.getElementById('sout').textContent=s;
+    var checks=[[b>=1&&b<=32,'1 ≤ batch ≤ 32'],[s>=8&&s<=2048,'8 ≤ seq ≤ 2048'],[s%8===0,'seq % 8 == 0']];
+    checks.forEach(function(c,i){var el=document.getElementById('a'+(i+1));el.textContent=c[1]+'  →  '+(c[0]?'true':'false');el.className=c[0]?'pass':'fail';});
+    var ok=checks.every(function(c){return c[0]}),v=document.getElementById('verdict');v.className='verdict'+(ok?'':' fail');v.textContent=ok?'ACCEPT · all assertions hold':'REJECT · contract violation';
+  }
+  batch.addEventListener('input',updateSim);seq.addEventListener('input',updateSim);updateSim();
+
+  var deployment={
+    python:{route:'ExportedProgram → optional AOTInductor package → Python loader',title:'Python service: retain orchestration, remove cold compilation',body:'Keep request handling in Python. Either load the exported program and run its module, or ahead-of-time compile/package it with AOTInductor so deployment avoids first-request tracing and code generation.',steps:['Save a .pt2 export for interchange.','Compile/package for the exact CPU/GPU target if startup latency matters.','Load in the service and enforce the documented tensor contract.']},
+    cpp:{route:'ExportedProgram → AOTInductor → compiled package/shared library → C++',title:'C++ server: lower the contract into native code',body:'AOTInductor consumes the sound export IR, performs Inductor optimizations/code generation, and emits an artifact that a non-Python host can load.',steps:['Export and validate in the build environment.','Compile for target architecture and accelerator stack.','Ship runtime libraries, custom ops, and artifact as one compatibility-tested unit.']},
+    edge:{route:'ExportedProgram → ExecuTorch edge dialect → backend delegation → .pte',title:'Mobile / edge: plan for constrained runtimes',body:'ExecuTorch lowers the exported graph, partitions supported regions to device backends, performs memory planning, and packages a lightweight program.',steps:['Keep preprocessing/postprocessing contracts explicit.','Quantize and partition with the target backend in mind.','Test peak memory and all dynamic-shape boundaries on the real device.']},
+    onnx:{route:'PyTorch module → torch.export-based ONNX exporter → ONNX → runtime',title:'Other runtimes: translate into standardized operators',body:'Use the modern ONNX exporter path when the consuming ecosystem expects ONNX. Export-style capture helps normalize Python programs before translation.',steps:['Select an ONNX opset supported by the runtime.','Verify custom operator and dynamic-shape mappings.','Run numerical parity in the target ONNX runtime, not just PyTorch.']}
+  };
+  function choose(k){var d=deployment[k],el=document.getElementById('deployAnswer');el.innerHTML='<div class="route">'+d.route+'</div><h3>'+d.title+'</h3><p>'+d.body+'</p><ol>'+d.steps.map(function(x){return '<li>'+x+'</li>'}).join('')+'</ol>';document.querySelectorAll('#deployChoices button').forEach(function(b){b.classList.toggle('active',b.dataset.choice===k)});}
+  document.querySelectorAll('#deployChoices button').forEach(function(b){b.addEventListener('click',function(){choose(b.dataset.choice)})});choose('python');
+
+  document.querySelectorAll('.q').forEach(function(q){q.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){
+    q.querySelectorAll('button').forEach(function(x){x.disabled=true;if(x.dataset.v===q.dataset.answer)x.classList.add('correct')});
+    if(b.dataset.v!==q.dataset.answer)b.classList.add('wrong');q.querySelector('.explain').classList.add('show');
+  })})});
+})();
+</script>
+</body>
+</html>
