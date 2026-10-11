@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>Inside Ask DoorDash: Agent Platform Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f3ef;
+      --paper: #fffef9;
+      --ink: #171713;
+      --muted: #65645e;
+      --line: #d8d6ce;
+      --soft: #e9e7df;
+      --orange: #e24c19;
+      --orange-soft: #fbe3d8;
+      --green: #19785a;
+      --green-soft: #dff0e8;
+      --blue: #23648b;
+      --blue-soft: #dcecf5;
+      --yellow: #e9b833;
+      --shadow: 0 18px 60px rgba(35,31,21,.08);
+      --radius: 18px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #11110f;
+        --paper: #191916;
+        --ink: #f4f1e7;
+        --muted: #b4b1a7;
+        --line: #373630;
+        --soft: #24241f;
+        --orange: #ff7042;
+        --orange-soft: #3b241c;
+        --green: #73c6a4;
+        --green-soft: #18352b;
+        --blue: #7bb8db;
+        --blue-soft: #192f3c;
+        --yellow: #f2c85a;
+        --shadow: 0 18px 60px rgba(0,0,0,.28);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px),
+        var(--bg);
+      background-size: 48px 48px;
+      color: var(--ink);
+      font-family: "Manrope", sans-serif;
+      line-height: 1.55;
+    }
+    a { color: inherit; }
+    button { font: inherit; }
+    .wrap { width: min(1180px, calc(100% - 36px)); margin: 0 auto; }
+    .mono { font-family: "DM Mono", monospace; }
+    .topline {
+      display: flex; justify-content: space-between; align-items: center; gap: 18px;
+      padding: 22px 0 10px; font: 500 12px/1.4 "DM Mono", monospace; color: var(--muted);
+    }
+    .topline a { text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+    .hero { padding: 54px 0 52px; display: grid; grid-template-columns: 1.25fr .75fr; gap: 56px; align-items: end; }
+    .stamp { display: inline-flex; gap: 9px; align-items: center; color: var(--orange); font: 500 12px/1 "DM Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .stamp::before { content: ""; width: 32px; height: 3px; background: var(--orange); }
+    h1 { font-size: clamp(42px, 7.4vw, 92px); line-height: .94; letter-spacing: -.065em; margin: 18px 0 24px; max-width: 860px; }
+    h1 .accent { color: var(--orange); }
+    .dek { font-size: clamp(17px, 2vw, 22px); line-height: 1.55; max-width: 760px; color: var(--muted); margin: 0; }
+    .hero-note { border-top: 4px solid var(--ink); padding-top: 18px; }
+    .hero-note strong { display: block; font-size: 46px; line-height: 1; letter-spacing: -.04em; margin-bottom: 8px; }
+    .hero-note p { margin: 0; color: var(--muted); font-size: 14px; }
+    .metrics { background: var(--ink); color: var(--bg); padding: 26px 0; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+    .metric { padding: 8px 24px; border-left: 1px solid color-mix(in srgb, var(--bg) 24%, transparent); }
+    .metric:first-child { border-left: 0; }
+    .metric b { display: block; font-size: clamp(28px,4vw,46px); line-height: 1; color: #ff7042; letter-spacing: -.04em; }
+    .metric span { display: block; margin-top: 8px; font-size: 13px; color: color-mix(in srgb, var(--bg) 72%, transparent); }
+    nav { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--paper) 92%, transparent); border-bottom: 1px solid var(--line); backdrop-filter: blur(14px); }
+    nav .wrap { display: flex; gap: 8px; overflow: auto; padding: 11px 0; scrollbar-width: none; }
+    nav a { flex: 0 0 auto; text-decoration: none; font: 500 11px/1 "DM Mono", monospace; text-transform: uppercase; letter-spacing: .06em; padding: 9px 12px; border: 1px solid transparent; border-radius: 999px; }
+    nav a:hover, nav a:focus-visible { border-color: var(--line); background: var(--paper); }
+    section { scroll-margin-top: 72px; padding: 88px 0; border-bottom: 1px solid var(--line); }
+    .section-head { display: grid; grid-template-columns: 180px 1fr; gap: 28px; margin-bottom: 42px; align-items: start; }
+    .section-no { color: var(--orange); font: 500 13px/1 "DM Mono", monospace; padding-top: 11px; }
+    h2 { font-size: clamp(32px,5vw,58px); line-height: 1.02; letter-spacing: -.045em; margin: 0; max-width: 880px; }
+    .section-intro { margin: 18px 0 0; max-width: 780px; color: var(--muted); font-size: 18px; }
+    .decision { display: grid; grid-template-columns: 1fr 80px 1fr; align-items: stretch; background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .decision-col { padding: 30px; }
+    .decision-mid { display: grid; place-items: center; border-left: 1px solid var(--line); border-right: 1px solid var(--line); color: var(--muted); font: 500 12px/1 "DM Mono", monospace; writing-mode: vertical-rl; text-transform: uppercase; letter-spacing: .15em; }
+    .decision h3, .card h3 { font-size: 21px; margin: 0 0 10px; letter-spacing: -.025em; }
+    .decision p, .card p { color: var(--muted); margin: 0; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    .chip { font: 500 11px/1.2 "DM Mono", monospace; background: var(--soft); border: 1px solid var(--line); padding: 8px 10px; border-radius: 999px; }
+    .chip.orange { background: var(--orange-soft); color: var(--orange); border-color: color-mix(in srgb, var(--orange) 25%, var(--line)); }
+    .rule { margin-top: 24px; padding: 18px 22px; background: var(--ink); color: var(--bg); font: 500 14px/1.6 "DM Mono", monospace; }
+    .architecture { background: var(--paper); border: 1px solid var(--line); padding: 28px; box-shadow: var(--shadow); }
+    .lane { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: stretch; border-top: 1px solid var(--line); padding: 20px 0; }
+    .lane:first-child { border-top: 0; padding-top: 0; }
+    .lane:last-child { padding-bottom: 0; }
+    .lane-label { font: 500 11px/1.4 "DM Mono", monospace; text-transform: uppercase; color: var(--muted); letter-spacing: .08em; padding-top: 13px; }
+    .flow { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .node { flex: 1; min-width: 0; padding: 16px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; position: relative; }
+    .node strong { display: block; font-size: 14px; }
+    .node small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .node.hot { background: var(--orange-soft); border-color: var(--orange); }
+    .node.domain { background: var(--blue-soft); border-color: var(--blue); }
+    .node.guard { background: var(--green-soft); border-color: var(--green); }
+    .arrow { color: var(--orange); font-size: 20px; flex: 0 0 auto; }
+    .platform-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+    .platform-grid .node { text-align: center; padding: 14px 8px; }
+    .journey { display: grid; grid-template-columns: 310px 1fr; gap: 22px; }
+    .steps { display: grid; gap: 8px; }
+    .step-btn { text-align: left; padding: 16px 18px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; transition: border-color .2s, background .2s; }
+    .step-btn b { display: block; font-size: 14px; }
+    .step-btn span { color: var(--muted); font-size: 12px; }
+    .step-btn.active { border-color: var(--orange); background: var(--orange-soft); }
+    .stage { min-height: 380px; background: var(--ink); color: #f7f4ea; padding: 28px; position: relative; overflow: hidden; }
+    .stage::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 88% 10%, rgba(255,112,66,.2), transparent 34%); pointer-events: none; }
+    .stage-kicker { color: #ff8c66; font: 500 11px/1 "DM Mono", monospace; text-transform: uppercase; letter-spacing: .1em; }
+    .stage h3 { font-size: clamp(25px,4vw,39px); line-height: 1.08; letter-spacing: -.035em; margin: 18px 0 12px; max-width: 650px; }
+    .stage p { max-width: 660px; color: #c8c4b9; }
+    .stage-code { margin-top: 28px; border: 1px solid #4b4942; padding: 16px; font: 400 12px/1.65 "DM Mono", monospace; color: #eae5d8; background: #11110f; white-space: pre-wrap; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .card { background: var(--paper); border: 1px solid var(--line); padding: 26px; }
+    .card .tag { display: inline-block; margin-bottom: 16px; color: var(--orange); font: 500 10px/1 "DM Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .sequence { margin-top: 20px; display: grid; gap: 9px; }
+    .seq-row { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; }
+    .seq-num { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--bg); font: 500 11px/1 "DM Mono", monospace; }
+    .seq-row p { font-size: 13px; padding-top: 2px; }
+    .pin-visual { display: grid; gap: 12px; margin-top: 22px; }
+    .pin-path { display: grid; grid-template-columns: 1fr 44px 1fr; align-items: center; }
+    .pin-path .line { height: 2px; background: var(--line); position: relative; }
+    .pin-path .line::after { content: "›"; position: absolute; right: -1px; top: -13px; color: var(--orange); font-size: 23px; }
+    .pinbox { padding: 13px; background: var(--soft); border: 1px solid var(--line); font-size: 12px; text-align: center; }
+    .token-demo { display: grid; grid-template-columns: 220px 1fr; gap: 30px; align-items: center; }
+    .skill-stack { position: relative; min-height: 330px; }
+    .skill-card { position: absolute; width: 82%; left: 9%; padding: 18px; border: 1px solid var(--line); background: var(--paper); box-shadow: 0 8px 30px rgba(0,0,0,.08); transition: transform .35s, opacity .35s; }
+    .skill-card:nth-child(1) { top: 0; transform: rotate(-3deg); }
+    .skill-card:nth-child(2) { top: 74px; transform: rotate(2deg); }
+    .skill-card:nth-child(3) { top: 148px; transform: rotate(-1deg); }
+    .skill-card:nth-child(4) { top: 222px; transform: rotate(3deg); }
+    .skill-card b { display: block; font-size: 14px; }
+    .skill-card small { color: var(--muted); }
+    .token-bars { background: var(--paper); border: 1px solid var(--line); padding: 28px; }
+    .toggle { display: inline-flex; padding: 4px; background: var(--soft); border: 1px solid var(--line); margin-bottom: 26px; }
+    .toggle button { border: 0; padding: 9px 13px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
+    .toggle button.active { background: var(--ink); color: var(--bg); }
+    .bar-group { margin: 22px 0; }
+    .bar-meta { display: flex; justify-content: space-between; font: 500 12px/1.3 "DM Mono", monospace; margin-bottom: 8px; gap: 12px; }
+    .bar-track { height: 28px; background: var(--soft); overflow: hidden; }
+    .bar-fill { height: 100%; width: var(--w); background: var(--orange); transition: width .45s ease; }
+    .bar-note { color: var(--muted); font-size: 12px; margin-top: 14px; }
+    .mcp { display: grid; grid-template-columns: 1fr 54px 1.1fr 54px 1fr; align-items: center; gap: 0; }
+    .mcp-box { min-height: 220px; padding: 24px; display: grid; align-content: center; border: 1px solid var(--line); background: var(--paper); }
+    .mcp-box.guard { background: var(--green-soft); border-color: var(--green); }
+    .mcp-box h3 { margin: 0 0 10px; font-size: 20px; }
+    .mcp-box p { color: var(--muted); font-size: 13px; margin: 0; }
+    .mcp-arrow { text-align: center; color: var(--orange); font-size: 27px; }
+    .guard-list { margin: 16px 0 0; padding: 0; list-style: none; }
+    .guard-list li { font: 500 11px/1.5 "DM Mono", monospace; border-top: 1px solid color-mix(in srgb, var(--green) 25%, var(--line)); padding: 8px 0; }
+    .callout { margin-top: 22px; border: 1px solid var(--line); background: var(--paper); padding: 22px; display: flex; align-items: flex-start; gap: 15px; }
+    .callout-mark { width: 10px; height: 42px; background: var(--orange); flex: 0 0 auto; }
+    .callout p { margin: 0; color: var(--muted); }
+    .state-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .state-card { padding: 25px; border-top: 5px solid; background: var(--paper); box-shadow: var(--shadow); }
+    .state-card:nth-child(1) { border-color: var(--orange); }
+    .state-card:nth-child(2) { border-color: var(--blue); }
+    .state-card:nth-child(3) { border-color: var(--green); }
+    .state-card .life { display: inline-block; font: 500 10px/1 "DM Mono", monospace; color: var(--muted); background: var(--soft); padding: 7px 8px; margin-bottom: 20px; }
+    .state-card h3 { margin: 0 0 8px; }
+    .state-card p { color: var(--muted); font-size: 14px; }
+    .state-card ul { margin: 18px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+    .production-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--paper); }
+    .prod { padding: 24px; border-left: 1px solid var(--line); }
+    .prod:first-child { border-left: 0; }
+    .prod .glyph { font: 500 23px/1 "DM Mono", monospace; color: var(--orange); margin-bottom: 24px; }
+    .prod h3 { font-size: 17px; margin: 0 0 8px; }
+    .prod p { color: var(--muted); font-size: 13px; }
+    .trace { margin-top: 22px; padding: 24px; background: var(--ink); color: var(--bg); }
+    .trace-line { display: grid; grid-template-columns: 100px 1fr 100px; gap: 12px; align-items: center; margin: 12px 0; font: 400 11px/1 "DM Mono", monospace; }
+    .trace-line span:first-child { color: #ff8c66; }
+    .trace-bar { height: 8px; background: #45433d; position: relative; }
+    .trace-bar i { display: block; height: 100%; background: #ff7042; width: var(--trace); }
+    .scoreboard { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    .score { padding: 28px; background: var(--paper); border: 1px solid var(--line); }
+    .score b { display: block; color: var(--orange); font-size: clamp(34px,5vw,56px); letter-spacing: -.05em; line-height: 1; }
+    .score span { display: block; color: var(--muted); margin-top: 10px; font-size: 14px; }
+    .tradeoffs { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 24px; }
+    .trade { padding: 22px; background: var(--paper); border: 1px solid var(--line); }
+    .trade h3 { margin: 0 0 15px; font-size: 17px; }
+    .trade-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; margin: 12px 0; color: var(--muted); font-size: 13px; }
+    .trade-row b { color: var(--orange); }
+    .takeaways { counter-reset: lessons; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .lesson { counter-increment: lessons; background: var(--paper); padding: 26px; }
+    .lesson::before { content: "0" counter(lessons); font: 500 12px/1 "DM Mono", monospace; color: var(--orange); }
+    .lesson h3 { margin: 22px 0 8px; font-size: 20px; }
+    .lesson p { color: var(--muted); margin: 0; font-size: 14px; }
+    .quiz { margin-top: 28px; }
+    .quiz details { background: var(--paper); border-top: 1px solid var(--line); }
+    .quiz details:last-child { border-bottom: 1px solid var(--line); }
+    .quiz summary { cursor: pointer; padding: 20px 18px; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 15px; }
+    .quiz summary::after { content: "+"; color: var(--orange); font: 500 22px/1 "DM Mono", monospace; }
+    .quiz details[open] summary::after { content: "−"; }
+    .quiz details p { margin: 0; padding: 0 18px 22px; color: var(--muted); max-width: 850px; }
+    footer { background: var(--ink); color: var(--bg); padding: 52px 0; }
+    footer .wrap { display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; }
+    footer h2 { font-size: 30px; max-width: 520px; }
+    .source { max-width: 430px; color: color-mix(in srgb, var(--bg) 68%, transparent); font-size: 13px; }
+    .source a { color: #ff8c66; text-underline-offset: 4px; }
+    .fine { margin-top: 14px; font: 400 10px/1.5 "DM Mono", monospace; }
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; gap: 32px; padding-top: 36px; }
+      .hero-note { max-width: 330px; }
+      .metric-grid { grid-template-columns: 1fr 1fr; }
+      .metric:nth-child(3) { border-left: 0; }
+      .metric:nth-child(n+3) { margin-top: 22px; }
+      .section-head { grid-template-columns: 1fr; gap: 10px; }
+      .decision { grid-template-columns: 1fr; }
+      .decision-mid { writing-mode: horizontal-tb; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 12px; }
+      .journey, .token-demo { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .architecture { padding: 18px; }
+      .lane { grid-template-columns: 1fr; gap: 8px; }
+      .flow { flex-wrap: wrap; }
+      .flow .node { min-width: 42%; }
+      .platform-grid { grid-template-columns: repeat(3,1fr); }
+      .mcp { grid-template-columns: 1fr; gap: 0; }
+      .mcp-arrow { transform: rotate(90deg); padding: 6px; }
+      .state-grid { grid-template-columns: 1fr; }
+      .production-grid { grid-template-columns: 1fr 1fr; }
+      .prod:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+      .prod:nth-child(4) { border-top: 1px solid var(--line); }
+    }
+    @media (max-width: 560px) {
+      .wrap { width: min(100% - 24px, 1180px); }
+      .topline { align-items: flex-start; flex-direction: column; gap: 8px; }
+      nav .wrap { flex-wrap: wrap; overflow: visible; gap: 5px; }
+      nav a { padding: 7px 9px; font-size: 9px; }
+      h1 { font-size: 47px; }
+      section { padding: 64px 0; }
+      .metric { padding: 8px 13px; }
+      .metric b { font-size: 30px; }
+      .steps { grid-template-columns: 1fr; }
+      .stage { min-height: 430px; padding: 22px; }
+      .split, .tradeoffs, .takeaways, .scoreboard { grid-template-columns: 1fr; }
+      .platform-grid { grid-template-columns: 1fr 1fr; }
+      .flow { align-items: stretch; }
+      .flow .node { min-width: calc(100% - 40px); }
+      .arrow { display: grid; place-items: center; transform: rotate(90deg); }
+      .production-grid { grid-template-columns: 1fr; }
+      .prod, .prod:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+      .prod:first-child { border-top: 0; }
+      .trace-line { grid-template-columns: 82px 1fr; }
+      .trace-line span:first-child { font-size: 10px; }
+      .trace-line span:last-child { display: none; }
+      footer .wrap { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="wrap topline">
+    <span>Architecture field guide · July 2026 source</span>
+    <a href="https://careersatdoordash.com/blog/building-ask-doordash-part-four-a-platform-for-building_and_evolving_agents/" target="_blank" rel="noopener">Read the original ↗</a>
+  </div>
+
+  <header class="wrap hero">
+    <div>
+      <div class="stamp">Platform anatomy</div>
+      <h1>How Ask DoorDash became an <span class="accent">agent platform</span></h1>
+      <p class="dek">A visual systems guide to the shared execution path, specialized domain agents, bounded context, safe tools, durable state, and release machinery behind one consumer assistant.</p>
+    </div>
+    <aside class="hero-note">
+      <strong>1 platform</strong>
+      <p>for many independently evolving agents — without forcing every domain into one giant prompt or one release cycle.</p>
+    </aside>
+  </header>
+
+  <div class="metrics">
+    <div class="wrap metric-grid">
+      <div class="metric"><b>2M+</b><span>conversations handled</span></div>
+      <div class="metric"><b>~2 mo</b><span>initial Restaurant + Grocery launch</span></div>
+      <div class="metric"><b>1 wk</b><span>to add Reservations</span></div>
+      <div class="metric"><b>35% + 40%</b><span>successive p50 latency cuts</span></div>
+    </div>
+  </div>
+
+  <nav aria-label="Guide sections">
+    <div class="wrap">
+      <a href="#why">Why</a><a href="#architecture">Architecture</a><a href="#request">Request path</a><a href="#routing">Routing</a><a href="#skills">Skills</a><a href="#mcp">MCP</a><a href="#state">State</a><a href="#production">Production</a><a href="#outcomes">Outcomes</a><a href="#lessons">Lessons</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="why">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">01 / WHY</div><div><h2>Share the hard infrastructure. Keep the intelligence local.</h2><p class="section-intro">DoorDash rejected both extremes: one all-knowing agent becomes hard to reason about; fully separate stacks duplicate reliability work and fragment the experience.</p></div></div>
+        <div class="decision">
+          <div class="decision-col"><h3>Platform owns</h3><p>Capabilities that repeat across domains and become risky when reimplemented.</p><div class="chip-row"><span class="chip orange">Orchestration</span><span class="chip orange">Model access</span><span class="chip orange">State services</span><span class="chip orange">Tracing</span><span class="chip orange">Evaluation</span><span class="chip orange">Rollouts</span></div></div>
+          <div class="decision-mid">stable boundary</div>
+          <div class="decision-col"><h3>Domain teams own</h3><p>The behavior and product judgment that make each agent useful.</p><div class="chip-row"><span class="chip">Instructions</span><span class="chip">Skills</span><span class="chip">Tools chosen</span><span class="chip">Eval criteria</span><span class="chip">Model choice</span></div></div>
+        </div>
+        <div class="rule">STANDARDIZE WHEN → multiple domains need the capability AND separate versions would create reliability or operational risk.</div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">02 / WHAT</div><div><h2>A layered path from client intent to deterministic action</h2><p class="section-intro">The architecture uses open contracts where possible: A2A for agent communication, ADK as the agent runtime, and MCP for narrow tool access.</p></div></div>
+        <div class="architecture" aria-label="Ask DoorDash layered architecture">
+          <div class="lane"><div class="lane-label">Experience edge</div><div class="flow"><div class="node"><strong>DoorDash clients</strong><small>HTTP request · UI events</small></div><span class="arrow">→</span><div class="node hot"><strong>Gateway</strong><small>Auth · context · SSE streaming</small></div></div></div>
+          <div class="lane"><div class="lane-label">Coordination</div><div class="flow"><div class="node hot"><strong>Orchestrator</strong><small>Classify · route · preserve continuity</small></div><span class="arrow">→</span><div class="node domain"><strong>Restaurant</strong><small>domain agent</small></div><div class="node domain"><strong>Grocery</strong><small>domain agent</small></div><div class="node domain"><strong>Reservations</strong><small>domain agent</small></div></div></div>
+          <div class="lane"><div class="lane-label">Action boundary</div><div class="flow"><div class="node"><strong>Relevant skills</strong><small>loaded per turn</small></div><span class="arrow">→</span><div class="node guard"><strong>MCP tools</strong><small>validate · authorize · execute</small></div><span class="arrow">→</span><div class="node"><strong>DoorDash services</strong><small>search · menus · carts · booking</small></div></div></div>
+          <div class="lane"><div class="lane-label">Shared platform</div><div class="platform-grid"><div class="node"><strong>Sessions</strong></div><div class="node"><strong>Memory</strong></div><div class="node"><strong>Artifacts</strong></div><div class="node"><strong>Models</strong></div><div class="node"><strong>Tracing</strong></div><div class="node"><strong>Evals + rollout</strong></div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="request">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">03 / HOW</div><div><h2>Walk one turn through the system</h2><p class="section-intro">Select a step to inspect what the platform contributes before the user sees the final multimodal response.</p></div></div>
+        <div class="journey">
+          <div class="steps" role="tablist" aria-label="Request journey">
+            <button class="step-btn active" role="tab" aria-selected="true" data-step="0"><b>01 · Enter</b><span>authenticate + enrich</span></button>
+            <button class="step-btn" role="tab" aria-selected="false" data-step="1"><b>02 · Route</b><span>pick or reuse a domain</span></button>
+            <button class="step-btn" role="tab" aria-selected="false" data-step="2"><b>03 · Reason</b><span>load only relevant skills</span></button>
+            <button class="step-btn" role="tab" aria-selected="false" data-step="3"><b>04 · Act</b><span>call governed MCP tools</span></button>
+            <button class="step-btn" role="tab" aria-selected="false" data-step="4"><b>05 · Stream</b><span>send text + widgets over SSE</span></button>
+          </div>
+          <div class="stage" aria-live="polite">
+            <div class="stage-kicker" id="stageKicker">Gateway boundary</div>
+            <h3 id="stageTitle">Turn a client request into a platform-native agent message</h3>
+            <p id="stageText">The Gateway authenticates the consumer, attaches where the conversation began, and translates the client's HTTP interface into the A2A contract used behind the edge.</p>
+            <div class="stage-code" id="stageCode">CLIENT HTTP
+  + identity
+  + entry-point context
+      ↓ translate
+A2A MESSAGE → shared execution path</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="routing">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">04 / ROUTING</div><div><h2>Specialists behind one conversational identity</h2><p class="section-intro">Routing buys testability and independent evolution. Pinning earns back the latency and token cost on normal follow-ups.</p></div></div>
+        <div class="split">
+          <article class="card"><span class="tag">First turn</span><h3>Orchestrator selects the domain</h3><p>The router reads conversation context, chooses a specialized agent, and preserves continuity across domain boundaries.</p><div class="pin-visual"><div class="pin-path"><div class="pinbox">“Dinner under 30 min”</div><div class="line"></div><div class="pinbox">Restaurant agent</div></div></div></article>
+          <article class="card"><span class="tag">Follow-up</span><h3>Pin directly to the active agent</h3><p>Most follow-ups skip a new routing call. If the message is out of scope, the active agent yields to the Orchestrator, which reroutes inside the same turn.</p><div class="pin-visual"><div class="pin-path"><div class="pinbox">“Show the first menu”</div><div class="line"></div><div class="pinbox">Restaurant · pinned</div></div><div class="pin-path"><div class="pinbox">“I'll cook instead”</div><div class="line"></div><div class="pinbox">Yield → Grocery</div></div></div></article>
+        </div>
+        <div class="callout"><div class="callout-mark"></div><p><strong>Design pattern:</strong> optimistic affinity. Assume the conversation stays in-domain, keep a cheap escape hatch, and hide the handoff from the user.</p></div>
+      </div>
+    </section>
+
+    <section id="skills">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">05 / CONTEXT</div><div><h2>Skills stop every capability from taxing every turn</h2><p class="section-intro">Even specialized agents accumulate prompt weight. Dynamic skills package instructions and tools so a turn loads only what it needs.</p></div></div>
+        <div class="token-demo">
+          <div class="skill-stack" aria-label="Example skills loaded on demand"><div class="skill-card"><b>Search & discovery</b><small>ranking, filters, delivery</small></div><div class="skill-card"><b>Menu browsing</b><small>items, modifiers, availability</small></div><div class="skill-card"><b>Cart operations</b><small>add, remove, quantities</small></div><div class="skill-card"><b>Checkout guidance</b><small>constraints, handoff</small></div></div>
+          <div class="token-bars">
+            <div class="toggle" aria-label="Instruction token mode"><button class="active" data-mode="all">All skills loaded</button><button data-mode="scoped">Skill-scoped turn</button></div>
+            <div class="bar-group"><div class="bar-meta"><span>Restaurant</span><span id="restaurantValue">~42,000 tokens</span></div><div class="bar-track"><div id="restaurantBar" class="bar-fill" style="--w:100%"></div></div></div>
+            <div class="bar-group"><div class="bar-meta"><span>Grocery</span><span id="groceryValue">~25,000 tokens</span></div><div class="bar-track"><div id="groceryBar" class="bar-fill" style="--w:60%"></div></div></div>
+            <div class="bar-note" id="barNote">Monolithic mode: every capability competes for attention and consumes input tokens.</div>
+          </div>
+        </div>
+        <div class="callout"><div class="callout-mark"></div><p><strong>The new failure mode:</strong> skill selection itself must be evaluated. A selector that misses a needed skill or loads irrelevant skills simply moves the quality problem.</p></div>
+      </div>
+    </section>
+
+    <section id="mcp">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">06 / SAFETY</div><div><h2>The model proposes. Deterministic code disposes.</h2><p class="section-intro">Prompts are guidance, not enforcement. MCP tools create a narrow, reusable boundary between probabilistic decisions and production services.</p></div></div>
+        <div class="mcp">
+          <div class="mcp-box"><div><h3>Agent intent</h3><p>Chooses a focused operation based on the conversation and the tools visible to its active skill.</p></div></div>
+          <div class="mcp-arrow">→</div>
+          <div class="mcp-box guard"><div><h3>MCP tool boundary</h3><p>Stable code decides whether the request can run.</p><ul class="guard-list"><li>validate structured inputs</li><li>enforce permissions</li><li>apply business rules</li><li>emit common telemetry</li></ul></div></div>
+          <div class="mcp-arrow">→</div>
+          <div class="mcp-box"><div><h3>Existing services</h3><p>Search stores and items, read menus, manage carts, or act through established DoorDash APIs.</p></div></div>
+        </div>
+        <div class="callout"><div class="callout-mark"></div><p><strong>Scale signal:</strong> the shared MCP server exposes more than 60 tools across public and internal agent workflows. The key is not tool count; it is that every consumer inherits the same validation, telemetry, and integration improvements.</p></div>
+      </div>
+    </section>
+
+    <section id="state">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">07 / STATE</div><div><h2>“Remember” is really three different storage contracts</h2><p class="section-intro">The platform centralizes ADK-compatible state APIs, but preserves separate lifetimes and access patterns instead of forcing all context into prompt history.</p></div></div>
+        <div class="state-grid">
+          <article class="state-card"><span class="life">NOW · ACTIVE TURN</span><h3>Session</h3><p>Tracks the live conversation and work already completed inside it.</p><ul><li>current routing affinity</li><li>turn progress</li><li>short-lived context</li></ul></article>
+          <article class="state-card"><span class="life">LATER · CROSS-SESSION</span><h3>Memory</h3><p>Preserves information that may improve future conversations.</p><ul><li>consumer preferences</li><li>selective retrieval</li><li>domain-owned save policy</li></ul></article>
+          <article class="state-card"><span class="life">STRUCTURED · MUTABLE</span><h3>Artifact</h3><p>Holds outputs the agent and interface can create, render, and update.</p><ul><li>shopping lists</li><li>interactive cards</li><li>shared source of truth</li></ul></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="production">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">08 / OPERATE</div><div><h2>Production readiness arrives as platform modules</h2><p class="section-intro">ADK supplies core agent pieces. DoorDash wraps them with the cross-cutting behavior a consumer product needs to operate safely.</p></div></div>
+        <div class="production-grid">
+          <article class="prod"><div class="glyph">↝</div><h3>End-to-end tracing</h3><p>One trace ID crosses the Orchestrator, A2A calls, agents, MCP tools, and downstream services.</p></article>
+          <article class="prod"><div class="glyph">M</div><h3>Model gateway</h3><p>Teams choose models while invocation, fallback behavior, and instrumentation stay consistent.</p></article>
+          <article class="prod"><div class="glyph">✓</div><h3>Evaluation harness</h3><p>Shared quality signals catch regressions in platform code, prompts, skills, and model upgrades.</p></article>
+          <article class="prod"><div class="glyph">%</div><h3>Rollout controls</h3><p>Changes move gradually into production behind common release safeguards.</p></article>
+        </div>
+        <div class="trace" aria-label="Distributed trace example">
+          <div class="trace-line"><span>gateway</span><div class="trace-bar"><i style="--trace:18%"></i></div><span>auth + SSE</span></div>
+          <div class="trace-line"><span>orchestrator</span><div class="trace-bar"><i style="--trace:31%"></i></div><span>route</span></div>
+          <div class="trace-line"><span>domain agent</span><div class="trace-bar"><i style="--trace:74%"></i></div><span>reason</span></div>
+          <div class="trace-line"><span>MCP tools</span><div class="trace-bar"><i style="--trace:52%"></i></div><span>validate + call</span></div>
+        </div>
+        <div class="callout"><div class="callout-mark"></div><p>Platform-provided tracing saves roughly <strong>one month of observability work</strong> for each new agent launch, according to DoorDash.</p></div>
+      </div>
+    </section>
+
+    <section id="outcomes">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">09 / OUTCOME</div><div><h2>The platform is measured by how fast teams can learn</h2><p class="section-intro">The payoff is not architecture elegance. It is shorter time from idea to safe production change, with cost, quality, and latency visible together.</p></div></div>
+        <div class="scoreboard">
+          <div class="score"><b>~10×</b><span>faster third-domain launch: Reservations in one week versus roughly two months for the first two domains.</span></div>
+          <div class="score"><b>−35%</b><span>p50 turn latency after evaluating and deploying a newly released model within one week, with no reported quality-score loss.</span></div>
+          <div class="score"><b>−40%</b><span>another p50 turn-latency reduction from a later model upgrade on the shared model path.</span></div>
+        </div>
+        <div class="tradeoffs">
+          <div class="trade"><h3>What the platform buys</h3><div class="trade-row"><b>+</b><span>One stable client contract as agents evolve.</span></div><div class="trade-row"><b>+</b><span>Reusable safety, state, tracing, eval, and rollout machinery.</span></div><div class="trade-row"><b>+</b><span>Independent domain behavior and release cadence.</span></div></div>
+          <div class="trade"><h3>What it makes more dangerous</h3><div class="trade-row"><b>!</b><span>Shared defects have a multi-agent blast radius.</span></div><div class="trade-row"><b>!</b><span>Premature abstractions can distort unlike products.</span></div><div class="trade-row"><b>!</b><span>Routing and dynamic skill selection add new evaluable failure modes.</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="lessons">
+      <div class="wrap">
+        <div class="section-head"><div class="section-no">10 / APPLY</div><div><h2>Portable lessons for any agent platform</h2><p class="section-intro">The system-design value is in the boundaries: where probabilistic reasoning ends, what gets shared, and how every change earns production trust.</p></div></div>
+        <div class="takeaways">
+          <article class="lesson"><h3>Platformize repetition, not possibility</h3><p>Wait for multiple real consumers. Standardize the pieces whose divergence would create reliability or operations pain.</p></article>
+          <article class="lesson"><h3>Use one edge contract</h3><p>Hide agent protocols, streaming, and multimodal transport behind a Gateway so clients do not couple to internal agent topology.</p></article>
+          <article class="lesson"><h3>Route coarse, load fine</h3><p>Choose a specialized domain first, then load only the skill needed for the turn. This bounds both reasoning scope and prompt cost.</p></article>
+          <article class="lesson"><h3>Put policy in code</h3><p>Let the model select operations, but validate identity, input, permission, and business constraints in deterministic tool implementations.</p></article>
+          <article class="lesson"><h3>Separate state by lifetime</h3><p>Session, memory, and artifacts are distinct contracts. Treating them all as chat history creates reliability and lifecycle problems.</p></article>
+          <article class="lesson"><h3>Make change the first-class workload</h3><p>Tracing, evaluation, fallback, and rollout controls are what let teams safely swap models and evolve shared infrastructure.</p></article>
+        </div>
+        <div class="quiz">
+          <details><summary>Why not use a single general-purpose agent?</summary><p>Restaurant, Grocery, and Reservations require different tools, policies, and evaluation criteria. One agent would increase context, coupling, and test complexity while forcing unrelated domains onto the same release cycle.</p></details>
+          <details><summary>Why pin follow-up turns?</summary><p>A full orchestration pass costs latency and input tokens even when the topic has not changed. Pinning makes the common path direct, while an out-of-scope signal still allows a same-turn reroute.</p></details>
+          <details><summary>Why isn't a careful prompt enough for tool safety?</summary><p>Prompts influence model behavior but cannot guarantee enforcement. A deterministic MCP boundary validates every call and applies permissions and business rules even when models or prompts change.</p></details>
+          <details><summary>What should be evaluated besides answer quality?</summary><p>Routing, skill selection, tool choice, latency, cost, regressions in shared code, and behavior under staged rollout all matter. Platform changes require a view across quality, cost, and latency.</p></details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <h2>One assistant on the surface. A governed ecosystem underneath.</h2>
+      <div class="source">Based on DoorDash Engineering’s <a href="https://careersatdoordash.com/blog/building-ask-doordash-part-four-a-platform-for-building_and_evolving_agents/" target="_blank" rel="noopener">“Building Ask DoorDash (Part 4): A Platform for Building and Evolving Agents”</a> by Fabio Flores and Lucas Arango, published July 24, 2026.<div class="fine">This visual guide is an independent educational summary. Metrics and architecture claims are attributed to the source article.</div></div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var journey = [
+        { kicker: 'Gateway boundary', title: 'Turn a client request into a platform-native agent message', text: 'The Gateway authenticates the consumer, attaches where the conversation began, and translates the client\'s HTTP interface into the A2A contract used behind the edge.', code: 'CLIENT HTTP\n  + identity\n  + entry-point context\n      ↓ translate\nA2A MESSAGE → shared execution path' },
+        { kicker: 'Orchestration', title: 'Choose a specialist — or keep the pinned one', text: 'The Orchestrator selects Restaurant, Grocery, or Reservations. Follow-up turns usually bypass a fresh route and continue with the active agent.', code: 'if session.domain_is_active:\n    target = session.pinned_agent\nelse:\n    target = orchestrator.route(turn)' },
+        { kicker: 'Bounded reasoning', title: 'Load the minimum instructions and tools for this turn', text: 'The domain agent selects a relevant skill. Search, menu browsing, and cart operations do not all enter the context unless they are needed.', code: 'DOMAIN AGENT\n  base instructions\n  + selected skill instructions\n  + selected tool schemas\n  ≠ entire capability catalog' },
+        { kicker: 'Deterministic boundary', title: 'Let the model request; let tool code enforce', text: 'An MCP tool validates structured input, checks permission and business rules, then invokes the existing DoorDash service and records telemetry.', code: 'model proposes tool_call\n      ↓\nvalidate → authorize → apply rules\n      ↓\nDoorDash API → structured result' },
+        { kicker: 'Responsive return path', title: 'Stream progress, text, and interactive payloads as they exist', text: 'The Gateway uses the Vercel AI SDK and Server-Sent Events so clients can render partial text and widget payloads without understanding A2A.', code: 'AGENT EVENTS\n  text delta ─┐\n  progress  ──┼→ Gateway → SSE → client\n  widget JSON ┘' }
+      ];
+      var buttons = document.querySelectorAll('.step-btn');
+      var kicker = document.getElementById('stageKicker');
+      var title = document.getElementById('stageTitle');
+      var text = document.getElementById('stageText');
+      var code = document.getElementById('stageCode');
+      buttons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          var item = journey[Number(button.getAttribute('data-step'))];
+          buttons.forEach(function (b) { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+          button.classList.add('active'); button.setAttribute('aria-selected', 'true');
+          kicker.textContent = item.kicker; title.textContent = item.title; text.textContent = item.text; code.textContent = item.code;
+        });
+      });
+
+      var modeButtons = document.querySelectorAll('.toggle button');
+      var restaurantBar = document.getElementById('restaurantBar');
+      var groceryBar = document.getElementById('groceryBar');
+      var restaurantValue = document.getElementById('restaurantValue');
+      var groceryValue = document.getElementById('groceryValue');
+      var barNote = document.getElementById('barNote');
+      modeButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          var scoped = button.getAttribute('data-mode') === 'scoped';
+          modeButtons.forEach(function (b) { b.classList.remove('active'); });
+          button.classList.add('active');
+          restaurantBar.style.setProperty('--w', scoped ? '48%' : '100%');
+          groceryBar.style.setProperty('--w', scoped ? '24%' : '60%');
+          restaurantValue.textContent = scoped ? '~20,000 tokens · 50%+ lower' : '~42,000 tokens';
+          groceryValue.textContent = scoped ? '~10,000 tokens · 60% lower' : '~25,000 tokens';
+          barNote.textContent = scoped ? 'Median skill-scoped instructions per turn; excludes history, user messages, tool schemas, and tool results.' : 'Monolithic mode: every capability competes for attention and consumes input tokens.';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
