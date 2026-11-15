@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loop Engineering Framework — Visual Guide</title>
+<style>
+:root{
+  --hatch-widget-bg:#ffffff; --hatch-widget-surface:#f8fafc; --hatch-widget-surface-muted:#f1f5f9;
+  --hatch-widget-text:#111827; --hatch-widget-muted:#6b7280; --hatch-widget-border:#e5e7eb;
+  --hatch-widget-accent:#2563eb; --hatch-widget-on-accent:#ffffff; --hatch-widget-focus:#2563eb;
+  --hatch-widget-shadow:0 1px 3px rgba(0,0,0,.1);
+}
+html[data-theme="dark"]{
+  --hatch-widget-bg:#0f1420; --hatch-widget-surface:#1a2233; --hatch-widget-surface-muted:#141b2c;
+  --hatch-widget-text:#e8edf5; --hatch-widget-muted:#93a0b8; --hatch-widget-border:#2a3550;
+  --hatch-widget-accent:#6ea8fe; --hatch-widget-on-accent:#0f1420; --hatch-widget-focus:#6ea8fe;
+  --hatch-widget-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+body{background:var(--hatch-widget-bg);color:var(--hatch-widget-text);margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:840px;margin:0 auto;padding:16px 12px 28px;box-sizing:border-box}
+header{margin:4px 0 14px}
+header h1{font-size:26px;margin:0 0 6px;letter-spacing:-.5px}
+header p{font-size:14.5px;line-height:1.55;color:var(--hatch-widget-muted);margin:0}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tabs button{flex:1;min-width:86px;padding:8px 6px;border-radius:10px;border:1px solid var(--hatch-widget-border);background:var(--hatch-widget-surface);color:var(--hatch-widget-text);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.tabs button.active{background:var(--hatch-widget-accent);color:var(--hatch-widget-on-accent);border-color:transparent}
+.plain{font-size:14px;line-height:1.55;color:var(--hatch-widget-text);margin:0 0 8px}
+.cap{font-size:13px;line-height:1.5;color:var(--hatch-widget-muted);margin:8px 0 0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:var(--hatch-widget-surface-muted);padding:1px 5px;border-radius:5px}
+svg{width:100%;height:auto;display:block;background:var(--hatch-widget-surface);border:1px solid var(--hatch-widget-border);border-radius:12px;box-sizing:border-box}
+.bxB{fill:#dbeafe;stroke:#2563eb;stroke-width:1.5}
+html[data-theme="dark"] .bxB{fill:#1e3a8a;stroke:#60a5fa}
+.bxO{fill:#ffedd5;stroke:#ea580c;stroke-width:1.5}
+html[data-theme="dark"] .bxO{fill:#431407;stroke:#fb923c}
+.chipB{fill:#bfdbfe;stroke:#2563eb;stroke-width:1.5}
+html[data-theme="dark"] .chipB{fill:#1e40af;stroke:#60a5fa}
+.chipO{fill:#fed7aa;stroke:#ea580c;stroke-width:1.5}
+html[data-theme="dark"] .chipO{fill:#7c2d12;stroke:#fb923c}
+.h{font-size:13px;font-weight:700;fill:#111827;text-anchor:middle}
+html[data-theme="dark"] .h{fill:#f9fafb}
+.ct{font-size:12.5px;font-weight:700;fill:#111827;text-anchor:middle}
+html[data-theme="dark"] .ct{fill:#f9fafb}
+.sub{font-size:11.5px;fill:#6b7280;text-anchor:middle}
+html[data-theme="dark"] .sub{fill:#9ca3af}
+.ar{font-size:15px;font-weight:700;fill:#6b7280;text-anchor:middle}
+html[data-theme="dark"] .ar{fill:#9ca3af}
+.ladder{display:flex;flex-direction:column;gap:6px}
+.rung{display:flex;gap:10px;align-items:center;background:var(--hatch-widget-surface);border:1px solid var(--hatch-widget-border);border-radius:10px;padding:7px 10px;font-size:13.5px;line-height:1.45;color:var(--hatch-widget-text)}
+.lv{flex:0 0 30px;height:24px;border-radius:7px;background:var(--hatch-widget-accent);color:var(--hatch-widget-on-accent);font-weight:800;font-size:12.5px;display:flex;align-items:center;justify-content:center}
+.ndB{fill:#dbeafe;stroke:#2563eb;stroke-width:2}
+html[data-theme="dark"] .ndB{fill:#1e3a8a;stroke:#60a5fa}
+.ndG{fill:#d1fae5;stroke:#059669;stroke-width:2}
+html[data-theme="dark"] .ndG{fill:#064e3b;stroke:#34d399}
+.ndO{fill:#ffedd5;stroke:#ea580c;stroke-width:2}
+html[data-theme="dark"] .ndO{fill:#431407;stroke:#fb923c}
+.ndR{fill:#fee2e2;stroke:#dc2626;stroke-width:2}
+html[data-theme="dark"] .ndR{fill:#450a0a;stroke:#f87171}
+.nt{font-size:13px;font-weight:700;fill:#111827;text-anchor:middle}
+html[data-theme="dark"] .nt{fill:#f9fafb}
+.nts{font-size:11px;fill:#374151;text-anchor:middle}
+html[data-theme="dark"] .nts{fill:#d1d5db}
+.edge{stroke:#059669;stroke-width:2.5;fill:none}
+.edgeB{stroke:#2563eb;stroke-width:2.5;fill:none}
+.note{font-size:12px;fill:#6b7280;text-anchor:middle}
+html[data-theme="dark"] .note{fill:#9ca3af}
+.v2c{font-size:12px;fill:#6b7280;text-anchor:middle}
+html[data-theme="dark"] .v2c{fill:#9ca3af}
+.ctr{font-size:13px;font-weight:700;fill:#2563eb;text-anchor:middle}
+html[data-theme="dark"] .ctr{fill:#93c5fd}
+.code{background:var(--hatch-widget-surface);border:1px solid var(--hatch-widget-border);border-radius:12px;padding:12px 14px;margin:10px 0 0;overflow-x:auto}
+.code pre{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.6;color:var(--hatch-widget-text);white-space:pre}
+.cards{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.card{display:flex;gap:12px;align-items:flex-start;background:var(--hatch-widget-surface);border:1px solid var(--hatch-widget-border);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.55;color:var(--hatch-widget-text)}
+.card span{color:var(--hatch-widget-muted)}
+.card a{color:var(--hatch-widget-accent);text-decoration:none}
+.card a:hover{text-decoration:underline}
+.num{flex:0 0 28px;height:28px;border-radius:50%;background:var(--hatch-widget-accent);color:var(--hatch-widget-on-accent);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Loop Engineering Framework</h1>
+    <p>Beginner to advanced — build a loop framework from a 5-line bash loop to a production harness. The inner loop is plumbing; the outer loop is what you engineer.</p>
+  </header>
+  <div class="tabs">
+    <button type="button" id="t0">Map</button>
+    <button type="button" id="t1">L0–L1 First loop</button>
+    <button type="button" id="t2">L2 Inner loop</button>
+    <button type="button" id="t3">L3–L4 Verify + memory</button>
+    <button type="button" id="t4">L5–L6 Safety</button>
+    <button type="button" id="t5">L7–L9 Scale</button>
+    <button type="button" id="t6">Open source</button>
+  </div>
+
+  <div class="pane" id="p0">
+    <p class="plain">A loop framework has two loops. The <b>inner loop</b> is plumbing your harness already gives you. The <b>outer loop</b> is what you engineer — and the framework is just that outer loop, written down as data:</p>
+    <svg viewBox="0 0 780 150" role="img" aria-label="Inner loop versus outer loop">
+      <rect x="20" y="14" width="350" height="122" rx="12" class="bxB"/>
+      <text x="195" y="42" class="h">INNER LOOP — harness gives you this</text>
+      <rect x="40" y="58" width="86" height="34" rx="8" class="chipB"/><text x="83" y="80" class="ct">perceive</text>
+      <text x="140" y="80" class="ar">→</text>
+      <rect x="152" y="58" width="60" height="34" rx="8" class="chipB"/><text x="182" y="80" class="ct">act</text>
+      <text x="226" y="80" class="ar">→</text>
+      <rect x="238" y="58" width="86" height="34" rx="8" class="chipB"/><text x="281" y="80" class="ct">observe</text>
+      <text x="195" y="118" class="sub">ReAct: Thought → Action → Observation</text>
+      <rect x="410" y="14" width="350" height="122" rx="12" class="bxO"/>
+      <text x="585" y="42" class="h">OUTER LOOP — what you engineer</text>
+      <rect x="430" y="58" width="70" height="34" rx="8" class="chipO"/><text x="465" y="80" class="ct">trigger</text>
+      <text x="512" y="80" class="ar">→</text>
+      <rect x="524" y="58" width="52" height="34" rx="8" class="chipO"/><text x="550" y="80" class="ct">goal</text>
+      <text x="588" y="80" class="ar">→</text>
+      <rect x="600" y="58" width="60" height="34" rx="8" class="chipO"/><text x="630" y="80" class="ct">verify</text>
+      <text x="672" y="80" class="ar">→</text>
+      <rect x="684" y="58" width="56" height="34" rx="8" class="chipO"/><text x="712" y="80" class="ct">stop</text>
+      <text x="585" y="118" class="sub">LoopSpec: trigger · goal · verify · stop · memory</text>
+    </svg>
+    <p class="plain" style="margin-top:10px">The ladder — climb one rung at a time. Each level exists because the level below it hurt:</p>
+    <div class="ladder">
+      <div class="rung"><span class="lv">L0</span><span><b>First loop</b> — a bash loop that runs the agent until tests pass</span></div>
+      <div class="rung"><span class="lv">L1</span><span><b>LoopSpec as data</b> — trigger, goal, verify, stop, memory in a YAML file</span></div>
+      <div class="rung"><span class="lv">L2</span><span><b>Inner runner</b> — your own ReAct loop: model call, tool dispatch, observation</span></div>
+      <div class="rung"><span class="lv">L3</span><span><b>Verification ladder</b> — cheap checks first, maker-checker, never self-grade</span></div>
+      <div class="rung"><span class="lv">L4</span><span><b>Memory &amp; tokens</b> — PROGRESS.md, fresh context, truncation, caching</span></div>
+      <div class="rung"><span class="lv">L5</span><span><b>Safety &amp; budgets</b> — caps, stall detection, escalation, human gate</span></div>
+      <div class="rung"><span class="lv">L6</span><span><b>Triggers &amp; queue</b> — cron, webhooks, work selection rules</span></div>
+      <div class="rung"><span class="lv">L7</span><span><b>Parallel loops</b> — one worktree per loop, sub-agents with capped returns</span></div>
+      <div class="rung"><span class="lv">L8</span><span><b>Observability</b> — $/solved task, pass rate, evals on a fixed task set</span></div>
+      <div class="rung"><span class="lv">L9</span><span><b>Production</b> — skills, self-improvement, recovery &amp; resume</span></div>
+    </div>
+  </div>
+
+  <div class="pane" id="p1" style="display:none">
+    <p class="plain">Level 0 is five lines of bash — the Ralph loop. Level 1 writes the same loop down as data, so the runner can read it instead of you re-typing it:</p>
+    <svg viewBox="0 0 780 330" role="img" aria-label="Ralph loop flowchart">
+      <defs><marker id="mA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker></defs>
+      <rect x="30" y="20" width="240" height="46" rx="9" class="ndB"/><text x="150" y="49" class="nt">Trigger: you run ./loop.sh</text>
+      <line x1="150" y1="66" x2="150" y2="92" class="edge" marker-end="url(#mA)"/>
+      <rect x="30" y="92" width="240" height="46" rx="9" class="ndB"/><text x="150" y="121" class="nt">Agent reads PROMPT.md + PROGRESS.md</text>
+      <line x1="150" y1="138" x2="150" y2="164" class="edge" marker-end="url(#mA)"/>
+      <rect x="30" y="164" width="240" height="46" rx="9" class="ndB"/><text x="150" y="193" class="nt">Agent edits code</text>
+      <line x1="150" y1="210" x2="150" y2="236" class="edge" marker-end="url(#mA)"/>
+      <rect x="30" y="236" width="240" height="46" rx="9" class="ndG"/><text x="150" y="265" class="nt">Run pytest -q (the verifier)</text>
+      <line x1="270" y1="259" x2="330" y2="259" class="edge" marker-end="url(#mA)"/>
+      <rect x="330" y="236" width="180" height="46" rx="9" class="ndG"/><text x="420" y="265" class="nt">Pass? → COMPLETE, exit 0</text>
+      <line x1="150" y1="282" x2="150" y2="306" class="edge" marker-end="url(#mA)"/>
+      <rect x="30" y="284" width="240" height="46" rx="9" class="ndO"/><text x="150" y="313" class="nt">Fail → append 3–5 lines to PROGRESS.md</text>
+      <path d="M 270 307 L 720 307 L 720 115 L 270 115" fill="none" class="edge" marker-end="url(#mA)"/>
+      <text x="725" y="220" class="v2c">next iteration</text>
+      <rect x="330" y="92" width="240" height="46" rx="9" class="ndR"/><text x="450" y="121" class="nt">5 iterations? → STOP, escalate</text>
+    </svg>
+    <div class="code"><pre>loop.yaml — the LoopSpec (L1: the loop as data)
+trigger: manual            # run ./loop.sh by hand
+goal: one failing test passes, nothing else regresses
+verify: pytest -q          # the check is the stop signal
+stop: pass OR 5 iterations
+memory: PROGRESS.md        # append-only, 3–5 lines per iteration
+budget: 30 min wall-clock</pre></div>
+    <p class="cap">The framework insight: <b>the spec is data, the runner is an interpreter of the spec.</b> Once the loop lives in a file, you can version it, review it, copy it — and hand it to any harness.</p>
+  </div>
+
+  <div class="pane" id="p2" style="display:none">
+    <p class="plain">Level 2 — the inner loop, written by you. It is one <span class="mono">while</span> loop with four moves. Everything else in a framework is scaffolding around this:</p>
+    <svg viewBox="0 0 780 300" role="img" aria-label="ReAct inner loop cycle">
+      <defs><marker id="mB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker></defs>
+      <rect x="290" y="16" width="200" height="52" rx="10" class="ndB"/><text x="390" y="37" class="nt">1 · Model picks next step</text><text x="390" y="56" class="nts">one LLM call</text>
+      <line x1="490" y1="42" x2="560" y2="110" class="edgeB" marker-end="url(#mB)"/>
+      <rect x="560" y="110" width="180" height="52" rx="10" class="ndB"/><text x="650" y="131" class="nt">2 · Tool runs</text><text x="650" y="150" class="nts">read · edit · test</text>
+      <line x1="650" y1="162" x2="490" y2="238" class="edgeB" marker-end="url(#mB)"/>
+      <rect x="290" y="232" width="200" height="52" rx="10" class="ndB"/><text x="390" y="253" class="nt">3 · Observation returns</text><text x="390" y="272" class="nts">result appended to history</text>
+      <line x1="290" y1="258" x2="220" y2="162" class="edgeB" marker-end="url(#mB)"/>
+      <rect x="40" y="110" width="180" height="52" rx="10" class="ndB"/><text x="130" y="131" class="nt">4 · Decide</text><text x="130" y="150" class="nts">continue or answer?</text>
+      <line x1="130" y1="110" x2="290" y2="42" class="edgeB" marker-end="url(#mB)"/>
+      <text x="390" y="150" class="ctr">while stop_reason</text>
+      <text x="390" y="170" class="ctr">== “tool_use”</text>
+      <text x="130" y="200" class="v2c">no tool call → return answer</text>
+    </svg>
+    <div class="code"><pre>messages = [system_prompt, goal, memory]
+while turns &lt; MAX_TURNS:
+    resp = model(messages)                 # one LLM call
+    if resp has no tool_call:
+        return resp.text                   # agent is done
+    result = tools[resp.tool].run(resp.args)
+    messages.append(resp.tool_call, result)
+raise Stall("max turns reached")</pre></div>
+    <p class="cap">Three parts to own: the <b>tool registry</b> (name → schema → handler), the <b>prompt builder</b> (system + goal + memory + history), and the <b>stop conditions</b> (no tool call, max turns, error). Every turn re-sends system prompt + tool schemas + full history — that is why the fixed block is the token tax (HarnessTax).</p>
+  </div>
+
+  <div class="pane" id="p3" style="display:none">
+    <p class="plain">Level 3 — verification is a ladder, cheapest first. Level 4 — memory is a file, not the full history:</p>
+    <div class="ladder">
+      <div class="rung"><span class="lv">1</span><span><b>Lint / syntax</b> — seconds, catches typos before anything runs</span></div>
+      <div class="rung"><span class="lv">2</span><span><b>Unit tests</b> — the target test, then the touched module</span></div>
+      <div class="rung"><span class="lv">3</span><span><b>Integration tests</b> — the whole suite</span></div>
+      <div class="rung"><span class="lv">4</span><span><b>E2E / browser</b> — only if 1–3 pass; the expensive check</span></div>
+      <div class="rung"><span class="lv">5</span><span><b>Human review</b> — a PR, never auto-merge on the agent’s say-so</span></div>
+    </div>
+    <svg viewBox="0 0 780 130" role="img" aria-label="Maker checker pattern" style="margin-top:10px">
+      <rect x="30" y="30" width="200" height="56" rx="10" class="ndB"/><text x="130" y="52" class="nt">Maker agent</text><text x="130" y="71" class="nts">writes code + tests</text>
+      <line x1="230" y1="58" x2="300" y2="58" class="edgeB" marker-end="url(#mB)"/>
+      <rect x="300" y="30" width="200" height="56" rx="10" class="ndG"/><text x="400" y="52" class="nt">Checker (separate agent)</text><text x="400" y="71" class="nts">runs tests, votes pass / fail</text>
+      <line x1="500" y1="58" x2="570" y2="58" class="edgeB" marker-end="url(#mB)"/>
+      <rect x="570" y="30" width="180" height="56" rx="10" class="ndO"/><text x="660" y="52" class="nt">Fail → back to maker</text><text x="660" y="71" class="nts">with notes, ≤ 2 retries</text>
+    </svg>
+    <div class="cards">
+      <div class="card"><div class="num">F</div><div><b>Fresh context per iteration.</b><br/><span>Each iteration is a new agent call — history never accumulates in one window. That is the Ralph rule and the biggest token saver.</span></div></div>
+      <div class="card"><div class="num">P</div><div><b>PROGRESS.md is the whole memory.</b><br/><span>3–5 lines per iteration: what changed, what the test said, what still fails. No full logs, no pasted tool output.</span></div></div>
+      <div class="card"><div class="num">T</div><div><b>Truncate observations.</b><br/><span>Cap tool output at ~120 lines in context; full logs go to files. AgentDiet cuts trajectory tokens 40–60% the same way.</span></div></div>
+      <div class="card"><div class="num">C</div><div><b>Cache the stable prefix.</b><br/><span>System prompt + schemas billed as cache reads at ~0.1×. Keep PROMPT.md short and byte-stable — and load tool definitions lazily (77K → 8.7K tokens).</span></div></div>
+    </div>
+    <p class="cap">Golden rule: <b>never let the maker grade itself.</b> The checker must be a different agent (or deterministic code), and the check must be something the agent cannot talk its way past.</p>
+  </div>
+
+  <div class="pane" id="p4" style="display:none">
+    <p class="plain">Level 5 — a loop without a budget is a billing incident. Level 6 — the loop needs a way to find its next job:</p>
+    <div class="cards">
+      <div class="card"><div class="num">5</div><div><b>Max iterations.</b><br/><span>Hard cap (5 is a good default). Hit it → STOP, read PROGRESS.md, fix the spec, rerun. Never loop unbounded.</span></div></div>
+      <div class="card"><div class="num">$</div><div><b>Token &amp; dollar budget.</b><br/><span>Track tokens and cost per iteration; abort when the budget is spent. Log it — you cannot tune what you do not measure.</span></div></div>
+      <div class="card"><div class="num">T</div><div><b>Wall-clock budget.</b><br/><span>30 minutes for a first loop. A stuck loop that runs overnight is worse than a loop that stops and asks.</span></div></div>
+      <div class="card"><div class="num">!</div><div><b>Stall detection.</b><br/><span>Same tool output twice · no file delta after an iteration · failing-test count not decreasing → stop and escalate, don’t retry blindly.</span></div></div>
+    </div>
+    <p class="plain" style="margin-top:12px"><b>Escalation ladder:</b> retry (≤ 2) → try a different approach → human gate → abort. Every terminal state gets a name — COMPLETE, STALLED, BUDGET_EXHAUSTED, ESCALATED, FAILED — so the loop can report what happened instead of vanishing.</p>
+    <p class="plain" style="margin-top:8px"><b>Triggers (L6):</b> manual · cron schedule · file watcher · CI webhook (a failing test opens a loop) · work queue. <b>Work selection:</b> pick the next item by priority; skip it if the goal is ambiguous, it touches secrets/payments, or it failed twice before.</p>
+    <svg viewBox="0 0 780 90" role="img" aria-label="Escalation ladder" style="margin-top:8px">
+      <rect x="30" y="24" width="140" height="42" rx="9" class="ndB"/><text x="100" y="50" class="nt">Retry ≤ 2</text>
+      <text x="186" y="50" class="ar">→</text>
+      <rect x="202" y="24" width="170" height="42" rx="9" class="ndO"/><text x="287" y="50" class="nt">Different approach</text>
+      <text x="388" y="50" class="ar">→</text>
+      <rect x="404" y="24" width="130" height="42" rx="9" class="ndO"/><text x="469" y="50" class="nt">Human gate</text>
+      <text x="550" y="50" class="ar">→</text>
+      <rect x="566" y="24" width="184" height="42" rx="9" class="ndR"/><text x="658" y="50" class="nt">Abort + write what happened</text>
+    </svg>
+    <p class="cap">Safety boundary: run in a git worktree or a scratch copy, never your main checkout. Autonomous loops need permissions bypassed to run unattended — a sandbox is the only boundary left, so stay in the room for the first runs.</p>
+  </div>
+
+  <div class="pane" id="p5" style="display:none">
+    <p class="plain">Level 7 — scale out with worktrees, one loop per worktree. Level 8 — measure the loop like a service. Level 9 — the loop starts improving itself:</p>
+    <svg viewBox="0 0 780 120" role="img" aria-label="Parallel loops in worktrees">
+      <rect x="30" y="34" width="160" height="52" rx="10" class="ndB"/><text x="110" y="56" class="nt">Queue of work</text><text x="110" y="75" class="nts">pick next item</text>
+      <line x1="190" y1="60" x2="250" y2="60" class="edgeB" marker-end="url(#mB)"/>
+      <rect x="250" y="16" width="160" height="44" rx="9" class="ndG"/><text x="330" y="43" class="nt">Loop A · worktree 1</text>
+      <rect x="250" y="66" width="160" height="44" rx="9" class="ndG"/><text x="330" y="93" class="nt">Loop B · worktree 2</text>
+      <line x1="410" y1="38" x2="470" y2="60" class="edgeB" marker-end="url(#mB)"/>
+      <line x1="410" y1="88" x2="470" y2="60" class="edgeB" marker-end="url(#mB)"/>
+      <rect x="470" y="34" width="280" height="52" rx="10" class="ndO"/><text x="610" y="56" class="nt">Checker merges only green PRs</text><text x="610" y="75" class="nts">human reviews, then merges</text>
+    </svg>
+    <div class="cards">
+      <div class="card"><div class="num">$</div><div><b>Measure $/solved task.</b><br/><span>Not pass rate alone, not cost alone — cost per <i>solved</i> task. HarnessTax’s whole point: the same model costs up to 5× across harnesses at the same success rate.</span></div></div>
+      <div class="card"><div class="num">▦</div><div><b>Track four numbers.</b><br/><span>Pass rate · turns per task · tokens per iteration · stall rate. If one moves, you know which level to fix.</span></div></div>
+      <div class="card"><div class="num">S</div><div><b>Skills = codified knowledge.</b><br/><span>SKILL.md files: how to build, test, and deploy <i>this</i> repo. The agent loads them on demand instead of re-learning them every run.</span></div></div>
+      <div class="card"><div class="num">↻</div><div><b>Self-improvement (L9).</b><br/><span>Hermes-style learning loop: experience → new skill → reuse. And recovery: crash-safe state in files, so a killed loop resumes instead of restarting.</span></div></div>
+    </div>
+    <p class="cap"><b>Anti-patterns:</b> agent edits the tests to pass (reward hacking) · model grades its own work · verification the agent can talk past · unbounded loops · context that grows forever. Every one of these has bitten a real loop — the LoopSpec paper catalogs them.</p>
+  </div>
+
+  <div class="pane" id="p6" style="display:none">
+    <p class="plain">Yes — loop engineering is open source, and the best way to learn it is to read the loops, not just the essays. Start with Pi; it is the smallest real loop in the wild:</p>
+    <div class="cards">
+      <div class="card"><div class="num">π</div><div><b>Pi — <a href="https://github.com/badlogic/pi-mono" target="_blank">badlogic/pi-mono</a></b><br/><span>Read this first. A minimal harness: 4 tools, a system prompt under 1,000 tokens. The whole loop fits in your head — and it was the cheapest harness in HarnessTax.</span></div></div>
+      <div class="card"><div class="num">◉</div><div><b>OpenClaw — <a href="https://github.com/openclaw/openclaw" target="_blank">openclaw/openclaw</a></b><br/><span>Gateway personal assistant, MIT, ~390k stars. Pi is its coding core. Study how the gateway routes sessions, tools, and channels.</span></div></div>
+      <div class="card"><div class="num">H</div><div><b>Hermes Agent — <a href="https://github.com/NousResearch/hermes-agent" target="_blank">NousResearch/hermes-agent</a></b><br/><span>The learning loop: turns experience into skills, full-text search over past sessions. MIT, ~250k stars. Read it for L9 (self-improvement).</span></div></div>
+      <div class="card"><div class="num">G</div><div><b>LangGraph — <a href="https://github.com/langchain-ai/langgraph" target="_blank">langchain-ai/langgraph</a></b><br/><span>Graph-based orchestration: explicit state machines, human-in-the-loop interrupts. Reach for it when your loop needs branches, not just a cycle.</span></div></div>
+      <div class="card"><div class="num">L</div><div><b>Loop Library / Loopy — <a href="https://github.com/Forward-Future/loopy" target="_blank">Forward-Future/loopy</a></b><br/><span>50 real loops with checks and stop rules, MIT, plus an installable skill. Copy a loop that fits; don’t invent one from scratch.</span></div></div>
+      <div class="card"><div class="num">R</div><div><b>Ralph — <a href="https://github.com/ghuntley/how-to-ralph-wiggum" target="_blank">ghuntley/how-to-ralph-wiggum</a></b><br/><span>The canonical 5-line bash loop. This is Level 0, and it is still the pattern every other loop is measured against.</span></div></div>
+      <div class="card"><div class="num">+</div><div><b>Also worth reading:</b> <a href="https://github.com/openai/codex" target="_blank">Codex</a> · <a href="https://github.com/All-Hands-AI/OpenHands" target="_blank">OpenHands</a> · <a href="https://github.com/sst/opencode" target="_blank">OpenCode</a><br/><span>Full coding harnesses at scale — read them after Pi, when you want to see how the same loop looks with sandboxing, permissions, and multi-model support.</span></div></div>
+    </div>
+    <p class="cap">How to use this list: <b>read Pi’s loop in one evening</b> → <b>run one loop from the Loop Library</b> → <b>read LangGraph when you need branches</b>. That is the fastest path from reading about loops to owning one.</p>
+  </div>
+</div>
+<script>
+(function(){
+  var mq = window.matchMedia('(prefers-color-scheme: dark)');
+  function applyTheme(){ document.documentElement.setAttribute('data-theme', mq.matches ? 'dark' : 'light'); }
+  mq.addEventListener('change', applyTheme); applyTheme();
+  var btns = Array.prototype.slice.call(document.querySelectorAll('.tabs button'));
+  var panes = btns.map(function(b,i){ return document.getElementById('p'+i); });
+  function show(i){
+    panes.forEach(function(p,j){ p.style.display = (j===i) ? 'block' : 'none'; });
+    btns.forEach(function(b,j){ b.classList.toggle('active', j===i); });
+  }
+  btns.forEach(function(b,i){ b.addEventListener('click', function(){ show(i); }); });
+  show(0);
+})();
+</script>
+</body>
+</html>
